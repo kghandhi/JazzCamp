@@ -1,0 +1,76 @@
+THEORY_CLASSES = [
+  :drum_theory,
+  :early_theory_one,
+  :early_theory_two,
+  :early_theory_three,
+  :early_theory_four,
+  :early_theory_five,
+  :late_theory_one,
+  :late_theory_two,
+  :late_theory_three,
+  :late_theory_four,
+  :late_theory_five,
+]
+
+MUSICIANSHIP_CLASSES = [
+  :drum_rudiments,
+  :early_musicianship_one,
+  :early_musicianship_two,
+  :early_musicianship_three,
+  :early_musicianship_four,
+  :early_musicianship_five,
+  :early_musicianship_six,
+  :early_musicianship_seven,
+  :early_musicianship_eight,
+  :early_musicianship_nine,
+  :early_musicianship_ten,
+  :late_musicianship_one,
+  :late_musicianship_two,
+  :late_musicianship_three,
+  :late_musicianship_four,
+  :late_musicianship_five,
+  :late_musicianship_six,
+  :late_musicianship_seven,
+  :late_musicianship_eight,
+  :late_musicianship_nine,
+  :late_musicianship_ten,
+]
+
+MASTERCLASSES = [
+  :flute_masterclass,
+  :clarinet_masterclass,
+  :voice_masterclass,
+  :string_masterclass,
+  :bass_masterclass_one,
+  :bass_masterclass_two,
+  :drum_masterclass_one,
+  :drum_masterclass_one,
+  :guitar_masterclass_one,
+  :guitar_masterclass_two,
+  :piano_masterclass_two,
+  :piano_masterclass_two,
+  :trombone_masterclass_one,
+  :trombone_masterclass_two,
+  :trumpet_masterclass_one,
+  :trumpet_masterclass_two,
+  :saxophone_masterclass_one,
+  :saxophone_masterclass_two,
+  :saxophone_masterclass_three,
+  :saxophone_masterclass_four,
+]
+
+SPLIT_CLASSES = [
+  :early_split_one,
+  :early_split_two,
+  :early_split_three,
+  :late_split_one,
+  :late_split_two,
+  :late_split_three,
+]
+
+COMBOS = [
+  :early_vocal_one,
+  :early_vocal_two,
+  :late_vocal_one,
+  :late_vocal_two,
+]
