@@ -1,48 +1,6 @@
 require_relative "student"
 require_relative "classes"
-
-POSSIBLE_INSTRUMENTS = [
-  :bass,
-  :cello,
-  :clarinet,
-  :drums,
-  :flute,
-  :guitar,
-  :piano,
-  :saxophone,
-  :trombone,
-  :trumpet,
-  :vibes,
-  :viola,
-  :violin,
-  :voice,
-]
-:bass_electric
-:bass_acoustic
-:saxophone_alto
-:saxophone_teno
-:saxophone_baritone
-
-
-STRINGS = [
-  :cello,
-  :viola,
-  :violin,
-]
-
-RHYTHMS = [
-  :bass,
-  :guitar,
-  :piano,
-  :vibes,
-]
-
-woodwinds = [
-  :clarinet,
-  :flute,
-  :saxophone,
-]
-
+require_relative "instruments"
 
 THEORY_BUCKETS = {
   1 => (0..14),
@@ -56,34 +14,35 @@ class Camp
   attr_accessor :students
   attr_accessor :students_by_instrument
 
-  def initialize(name)
+  def initialize(name, number_of_rooms)
     @name = name
     @students = []
     @students_by_instrument = Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
+    @number_of_combos = number_of_rooms * 2
   end
 
 
   def schedule_theory_class
-    @students_by_instrument[:drums].each { |drum_kid| drum_kid.theory_class = :drum_theory }
-    non_drums = @students.select { |student| student.instrument != :drums }
-
-    level_one_students = non_drums.select { |student| THEORY_BUCKETS[1].include?(student.theory_score) }
-    level_two_students = non_drums.select { |student| THEORY_BUCKETS[2].include?(student.theory_score) }
-    level_three_students = non_drums.select { |student| THEORY_BUCKETS[3].include?(student.theory_score) }
-    level_four_students = non_drums.select { |student| THEORY_BUCKETS[4].include?(student.theory_score) }
-    level_five_students = non_drums.select { |student| THEORY_BUCKETS[5].include?(student.theory_score) }
-    POSSIBLE_INSTRUMENTS.each do |instrument|
-      _divide_students_by_instrument(level_one_students, instrument, 1)
-      _divide_students_by_instrument(level_two_students, instrument, 2)
-      _divide_students_by_instrument(level_three_students, instrument, 3)
-      _divide_students_by_instrument(level_four_students, instrument, 4)
-      _divide_students_by_instrument(level_five_students, instrument, 5)
+    # Drummers go in Drum theory (late) if they do not have a theory score
+    @students_by_instrument[:drums].each do |drummer|
+      if drummer.theory_score.nil?
+        drum_kid.theory_class = :drum_theory
+      else
+        drummer.theory_class = "late_theory_#{theory_level(drummer)}".to_sym
+      end
     end
-      puts "level 1: #{level_one_students.length}"
-      puts "level 2: #{level_two_students.length}"
-      puts "level 3: #{level_three_students.length}"
-      puts "level 4: #{level_four_students.length}"
-      puts "level 5: #{level_five_students.length}"
+
+    # vocalists must be in early theory
+    @students_by_instrument[:voice].each do |vocalist|
+      vocalist.theory_class = "early_theory_#{theory_level(vocalist)}".to_sym
+    end
+
+    rest = @students.select { |student| student.theory_class.nil? }
+    # TODO do something with the rest
+  end
+
+  def theory_level(student)
+    THEORY_BUCKETS.first { |level,range| range.include?(student.theory_score) }[0]
   end
 
   def _divide_students_by_instrument(theory_bucket, instrument, level)
@@ -98,12 +57,13 @@ class Camp
 
   def schedule_musicianship_class
     # assumes students have been assigned theory classes already
+    # Drum Rudiments is a early class
+    # Vocal Musicianship is an late class
     @students_by_instrument[:drums].each { |drum_kid| drum_kid.musicianship_class = :drum_rudiments }
-    non_drums = @students.select { |student| student.instrument != :drums }
-    early_theory = non_drums.select { |student| student.early_theory? }
-    late_theory = non_drums.select { |student| !student.early_theory? }
-    puts early_theory.length
-    puts late_theory.length
+    @students_by_instrument[:voice].each { |voice_kid| voice_kid.musicianship_class = :vocal_musicianship }
+
+    rest = @students.select { |student| student.musicianship_class.nil? }
+    # TODO do something with the rest
   end
 
   def schedule_masterclass
@@ -123,16 +83,31 @@ class Camp
   def _split_into_masterclasses(instrument, num)
     students = @students_by_instrument[instrument]
     students.concat(@students_by_instrument[:vibes]) if instrument == :piano
-    students_by_rank = students.sort_by { |student| student.in_rank }
-
-    class_size = (students_by_rank.length / num.to_f).ceil
-    num.times do |class_level|
-      class_name = (instrument.to_s + "_masterclass_" + (class_level + 1).to_s).to_sym
-      students_in_class = students_by_rank[(class_level * class_size)...(class_size * (class_level+1))]
-      students_in_class.each { |student| student.masterclass = class_name }
+    if num == 2
+      levels = {
+        1 => (0...3),
+        2 => (3..6),
+      }
+    elsif students.any? { |student| student.combo_score == 6 }
+      levels = {
+        1 => (0...2),
+        2 => (2...4),
+        3 => (4...6),
+        4 => (6..6),
+      }
+    else
+      levels = {
+        1 => (0...2),
+        2 => (2...4),
+        3 => (4...5),
+        4 => (5..6),
+      }
+    end
+    students.each do |student|
+      level = levels.first { |level| level.include?(student.combo_score) }[0]
+      student.masterclass = (instrument.to_s + "_masterclass_#{level}").to_sym
     end
   end
-
 
   def schedule_combo
     # half students go to early combo half to late. Use instrument score to schedule these.

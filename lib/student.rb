@@ -2,16 +2,16 @@ class Student
   attr_reader :lname, :fname, :instrument, :in_rank, :theory_score, :musicianship_score, :combo_score
   attr_accessor :theory_class, :musicianship_class, :masterclass, :combo, :split
 
-  def initialize(fname, lname, instrument, instrument_variation=nil, in_rank, theory_score, musicianship_score, combo_score)
-    @instrument = instrument
-    @instrument_variation = instrument_variation
-    @fname = fname
-    @lname = lname
+  def initialize(student_params)
+    @instrument = student_params.instrument
+    @instrument_variation = student_params.variant
+    @fname = student_params.fname
+    @lname = student_params.lname
 
-    @in_rank = in_rank
-    @theory_score = theory_score
-    @musicianship_score = musicianship_score
-    @combo_score = combo_score
+    @in_rank = student_params.in_rank
+    @theory_score = student_params.theory_score
+    @musicianship_score = student_params.musicianship_score
+    @combo_score = student_params.combo_score
 
     @theory_class = nil
     @musicianship_class = nil
