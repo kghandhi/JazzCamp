@@ -1,4 +1,5 @@
 require_relative "parser"
+require_relative "roster_printer"
 
 class ClassScheduler
   def initialize
@@ -14,12 +15,12 @@ class ClassScheduler
     number_of_rooms = args[2].to_i
     _abort("invalid file path.") unless File.file?(student_stats_filename)
 
-    parser = Parser.new(camp_name, number_of_rooms)
-    parser.populate_students(student_stats_filename)
-    parser.camp.schedule_masterclass
-    parser.camp.schedule_theory_class
-    parser.camp.schedule_musicianship_class
-    # parser.camp.write_output
+    camp = Camp.new(camp_name, number_of_rooms)
+    Parser.new(camp).populate_students(student_stats_filename)
+    camp.schedule_masterclass
+    camp.schedule_theory_musicianship_classes
+    RosterPrinter.new(camp.students).find_all_rosters
+    # camp.write_output
 
   end
 

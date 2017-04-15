@@ -3,9 +3,8 @@ require_relative "camp"
 require_relative "student_params"
 
 class Parser
-  attr_accessor :camp
-  def initialize(camp_name, number_of_rooms)
-    @camp = Camp.new(camp_name, number_of_rooms)
+  def initialize(camp)
+    @camp = camp
   end
 
   def populate_students(student_stats_filename)

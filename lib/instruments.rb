@@ -32,6 +32,16 @@ RHYTHMS = [
   :vibes,
 ]
 
+PIANO_TYPE = [
+  :piano,
+  :vibes,
+]
+
+AMPY_TYPE = [
+  :guitar,
+  :bass,
+]
+
 woodwinds = [
   :clarinet,
   :flute,

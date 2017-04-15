@@ -1,5 +1,5 @@
 require_relative "student"
-require_relative "classes"
+require_relative "classroom"
 require_relative "instruments"
 
 THEORY_BUCKETS = {
@@ -21,8 +21,8 @@ class Camp
     @number_of_combos = number_of_rooms * 2
   end
 
-
-  def schedule_theory_class
+  def schedule_theory_musicianship_classes
+    # Theory Class for drummers and vocalists
     # Drummers go in Drum theory (late) if they do not have a theory score
     @students_by_instrument[:drums].each do |drummer|
       if drummer.theory_score.nil?
@@ -37,33 +37,51 @@ class Camp
       vocalist.theory_class = "early_theory_#{theory_level(vocalist)}".to_sym
     end
 
-    rest = @students.select { |student| student.theory_class.nil? }
-    # TODO do something with the rest
-  end
-
-  def theory_level(student)
-    THEORY_BUCKETS.first { |level,range| range.include?(student.theory_score) }[0]
-  end
-
-  def _divide_students_by_instrument(theory_bucket, instrument, level)
-    students = theory_bucket.select { |student| instrument == student.instrument }
-    students = students.sort_by { |student| student.in_rank }
-    early_class = "early_theory_#{level}".to_sym
-    late_class = "late_theory_#{level}".to_sym
-    students.values_at(* students.each_index.select { |i| i.even? }).each { |student| student.theory_class = early_class }
-    students.values_at(* students.each_index.select { |i| i.odd? }).each { |student| student.theory_class = late_class }
-
-  end
-
-  def schedule_musicianship_class
-    # assumes students have been assigned theory classes already
-    # Drum Rudiments is a early class
-    # Vocal Musicianship is an late class
+    # Musicianship class for drummers and vocalists
     @students_by_instrument[:drums].each { |drum_kid| drum_kid.musicianship_class = :drum_rudiments }
     @students_by_instrument[:voice].each { |voice_kid| voice_kid.musicianship_class = :vocal_musicianship }
 
-    rest = @students.select { |student| student.musicianship_class.nil? }
-    # TODO do something with the rest
+    rest = @students.select { |student| student.musicianship_class.nil? && student.theory_class.nil? }
+
+    theory_score_ranked = rest.sort_by(&:theory_score)
+    early_and_late = theory_score_ranked.each_with_index.group_by { |student,rank| rank % 2 }
+
+    early = early_and_late[0].map!(&:first)
+    early.map { |student| student.theory_class = "early_theory_#{theory_level(student)}".to_sym }
+
+    late = early_and_late[1].map!(&:first)
+    late.map { |student| student.theory_class = "late_theory_#{theory_level(student)}".to_sym }
+
+    _schedule_musicianship(early, :early)
+    _schedule_musicianship(late, :late)
+  end
+
+  def _schedule_musicianship(students, period)
+    piano_type = students.select { |student| PIANO_TYPE.include?(student.instrument) }
+    piano_type.sort_by!(&:musicianship_score)
+
+    ampy_type = students.select { |student| AMPY_TYPE.include?(student.instrument) }
+    ampy_type.sort_by!(&:musicianship_score)
+
+    other_type = students - piano_type - ampy_type
+    other_type.sort_by!(&:musicianship_score)
+
+    CLASSROOMS.shuffle.each_with_index do |room,level|
+      pianos = piano_type.pop(room.num_pianos)
+
+      num_amps = room.num_amps
+      num_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
+      amps = ampy_type.pop(num_amps)
+
+      other = other_type.pop(room.capacity - amps.length - pianos.length)
+
+      class_label = "#{period}_musicianship_#{level}".to_sym
+      (pianos + amps + other).map { |student| student.musicianship_class = class_label }
+    end
+  end
+
+  def theory_level(student)
+    (THEORY_BUCKETS.select { |level| THEORY_BUCKETS[level].include?(student.theory_score) }).first[0]
   end
 
   def schedule_masterclass
@@ -89,6 +107,7 @@ class Camp
         2 => (3..6),
       }
     elsif students.any? { |student| student.combo_score == 6 }
+    # for sax consider just splitting evenly?
       levels = {
         1 => (0...2),
         2 => (2...4),
@@ -103,8 +122,10 @@ class Camp
         4 => (5..6),
       }
     end
+
     students.each do |student|
-      level = levels.first { |level| level.include?(student.combo_score) }[0]
+      level = (levels.select { |level| levels[level].include?(student.combo_score) }).first[0]
+
       student.masterclass = (instrument.to_s + "_masterclass_#{level}").to_sym
     end
   end
@@ -113,7 +134,16 @@ class Camp
     # half students go to early combo half to late. Use instrument score to schedule these.
     # 30 combos each week. Each gets one of each of drummer, basssist, guitarist. 3-4 horn players per combo (1 trumpet, 1 trombone, 2 sax)
     # largest combo size is 5-6
+    drums = @students_by_instrument[:drums].sort_by(&:in_rank)
+    puts "Combo's cannot be scheduled if number of drums > number of combos" if drums.length > @number_of_combos
 
+    pianos = @students_by_instrument[:piano].sort_by(&:in_rank)
+    # if the number of pianos is differnt then number of drums what do we do
+
+    # sorted highest ranked drummer to lowest
+    drums.each_with_index do |level,instr|
+      instr.combo = "combo_#{level}".to_sym
+    end
   end
 
   def schedule_split
