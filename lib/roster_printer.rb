@@ -28,7 +28,8 @@ class RosterPrinter
     puts "There are #{musicianship_classes.length} musicianship classes"
     puts "----------------------------------------"
     musicianship_classes.sort.each do |class_name, students|
-      puts "#{class_name} has #{students.length} students"
+      scores = students.map(&:combo_score).sort.join(" ,")
+      puts "#{class_name} has #{students.length} students: #{scores}"
     end
   end
 

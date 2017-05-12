@@ -42,9 +42,13 @@ AMPY_TYPE = [
   :bass,
 ]
 
-woodwinds = [
+WOODWINDS = [
   :clarinet,
   :flute,
   :saxophone,
 ]
 
+BRASS = [
+  :trumpet,
+  :trombone,
+]

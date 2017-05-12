@@ -19,6 +19,7 @@ class ClassScheduler
     Parser.new(camp).populate_students(student_stats_filename)
     camp.schedule_masterclass
     camp.schedule_theory_musicianship_classes
+    camp.schedule_combo_split_classes
     RosterPrinter.new(camp.students).find_all_rosters
     # camp.write_output
 
