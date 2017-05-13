@@ -28,7 +28,7 @@ class RosterPrinter
     puts "There are #{musicianship_classes.length} musicianship classes"
     puts "----------------------------------------"
     musicianship_classes.sort.each do |class_name, students|
-      scores = students.map(&:combo_score).sort.join(" ,")
+      scores = students.map(&:musicianship_score).sort.join(" ,")
       puts "#{class_name} has #{students.length} students: #{scores}"
     end
   end
@@ -44,21 +44,22 @@ class RosterPrinter
   end
 
   def combo_rosters
-    combos = @students.group_by { |student| student.combo }
+    combos = @students.group_by { |student| student.combo.to_s }
     puts "----------------------------------------"
     puts "There are #{combos.length} combos"
     puts "----------------------------------------"
-    combos.each do |class_name, students|
-      puts "#{class_name} has #{students.length} students"
+    combos.sort.each do |class_name, students|
+      scores = students.map(&:combo_score).sort.join(" ,")
+      puts "#{class_name} has #{students.length} students: #{scores}"
     end
   end
 
   def split_rosters
-    splits = @students.group_by { |student| student.split }
+    splits = @students.group_by { |student| student.split.to_s }
     puts "----------------------------------------"
     puts "There are #{splits.length} split classes"
     puts "----------------------------------------"
-    splits.each do |class_name, students|
+    splits.sort.each do |class_name, students|
       puts "#{class_name} has #{students.length} students"
     end
   end

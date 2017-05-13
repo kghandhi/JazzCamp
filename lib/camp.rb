@@ -17,8 +17,12 @@ class Camp
   def initialize(name, number_of_rooms)
     @name = name
     @students = []
-    @students_by_instrument = Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
-    @number_of_combos = number_of_rooms * 2
+    @students_by_instrument = _empty_students_by_instrument
+    @number_of_combos = number_of_rooms * 2 # || num_drummers
+  end
+
+  def _empty_students_by_instrument
+    Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
   end
 
   def schedule_theory_musicianship_classes
@@ -38,31 +42,29 @@ class Camp
     end
 
     # Musicianship class for drummers and vocalists
-    @students_by_instrument[:drums].each { |drum_kid| drum_kid.musicianship_class = :drum_rudiments }
-    @students_by_instrument[:voice].each { |voice_kid| voice_kid.musicianship_class = :vocal_musicianship }
+    @students_by_instrument[:drums].each do |drum_kid|
+      drum_kid.musicianship_class = :drum_rudiments
+    end
+    @students_by_instrument[:voice].each do |voice_kid|
+      voice_kid.musicianship_class = :vocal_musicianship
+    end
 
-    rest = @students.select { |student| student.musicianship_class.nil? && student.theory_class.nil? }
+    rest = @students.select do |student|
+      student.musicianship_class.nil? && student.theory_class.nil?
+    end
 
     theory_score_ranked = rest.sort_by(&:theory_score)
     early, late = _zipper_split(theory_score_ranked)
-   # early_and_late = theory_score_ranked.each_with_index.group_by { |student,rank| rank % 2 }
 
-    #early = early_and_late[0].map!(&:first)
-    early.map { |student| student.theory_class = "early_theory_#{theory_level(student)}".to_sym }
-
-    #late = early_and_late[1].map!(&:first)
-    late.map { |student| student.theory_class = "late_theory_#{theory_level(student)}".to_sym }
+    early.map { |student|
+      student.theory_class = "early_theory_#{theory_level(student)}".to_sym
+    }
+    late.map { |student|
+      student.theory_class = "late_theory_#{theory_level(student)}".to_sym
+    }
 
     _schedule_musicianship(early, :early)
     _schedule_musicianship(late, :late)
-  end
-
-  def _zipper_split(sorted_students)
-    grouped = sorted_students.each_with_index.group_by { |student,rank| rank % 2 }
-    first_set = grouped[0].map(&:first)
-    second_set = grouped[1].map(&:first)
-
-    [first_set, second_set]
   end
 
   def _schedule_musicianship(students, period)
@@ -166,6 +168,9 @@ class Camp
 
   def schedule_combo_split_classes
     # do not handle vocalists
+    @students_by_instrument[:voice].each { |student| student.combo = "vocal_combo" }
+    @students_by_instrument[:voice].each { |student| student.split = "vocal_split" }
+
     drums = @students_by_instrument[:drums].sort_by(&:in_rank)
     bass = @students_by_instrument[:bass].sort_by(&:in_rank) # this is short
     guitars = @students_by_instrument[:guitar].sort_by(&:in_rank)
@@ -178,17 +183,19 @@ class Camp
     early_guitars, late_guitars = _zipper_split(guitars)
     early_horns, late_horns = _zipper_split(horns)
 
-    _schedule_combo(:early, early_drums, early_bass, early_guitars, early_horns)
-    _schedule_combo(:late, late_drums, late_bass, late_guitars, late_horns)
-
     early_students = early_drums + early_bass + early_guitars + early_horns
     late_students = late_drums + late_bass + late_guitars + late_horns
+
     _schedule_split(:early, early_students)
     _schedule_split(:late, late_students)
 
+    _schedule_combo(:early, early_drums, early_bass, early_guitars, early_horns)
+    _schedule_combo(:late, late_drums, late_bass, late_guitars, late_horns)
   end
 
   def _schedule_combo(period, drummers, bassists, guitarists, horns)
+    horn_groups = _in_groups(horns, drummers.length)
+
     CLASSROOMS.take(drummers.length).each_with_index do |room,level|
       curr_combo = []
       curr_combo << drummers.pop if drummers.length > 0
@@ -197,23 +204,34 @@ class Camp
         curr_combo << bassists.pop if bassists.length > 0
       end
 
-      curr_combo += horns.pop(room.capacity - curr_combo.length) if horns.length > 0
+      curr_combo += horn_groups[level]
+      # curr_combo += horns.pop(room.capacity - curr_combo.length) if horns.length > 0
 
       class_label = "#{period}_combo_#{level}".to_sym
       curr_combo.map { |student| student.combo = class_label }
+      nil
     end
   end
 
   def _schedule_split(period, students)
     students.sort_by!(&:combo_score)
 
-    in_groups(students, 3).each do |level,students|
+    groups_of_people = _in_groups(students, 3)
+    groups_of_people.each do |level,students|
       class_name = "#{period}_split_#{level}".to_sym
       students.map { |student| student.split = class_name }
     end
   end
 
-  def in_groups(students, number)
+  def _zipper_split(sorted_students)
+    grouped = sorted_students.each_with_index.group_by { |student,rank| rank % 2 }
+    first_set = grouped[0].map(&:first)
+    second_set = grouped[1].map(&:first)
+
+    [first_set, second_set]
+  end
+
+  def _in_groups(students, number)
     division = students.length / number
     modulo = students.length % number
 
