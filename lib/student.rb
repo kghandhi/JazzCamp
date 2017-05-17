@@ -20,7 +20,6 @@ class Student
     @split = nil
   end
 
-
   def early_theory?
     return @theory_class.to_s.split(/_/)[0] == "early"
   end
@@ -38,40 +37,40 @@ class Student
   end
 
   def event1
-    return @musicianship_class if @instrument == :drums
+    puts "HELP theory/musicianship" if early_theory? && early_musicianship?
     if early_theory?
-      @theory_class
-    elsif early_musicianship?
-      @musicianship_class
+      @theory_class.to_s
+    else
+      @musicianship_class.to_s
     end
   end
 
   def event2
-    return @theory_class if @instrument == :drums
     if !early_theory? #@theory_class.to_s.split(/_/)[0] == "late"
-      @theory_class
-    elsif !early_musicianship? #@musicianship_class.to_s.split(/_/)[0] == "late"
-      @musicianship_class
+      @theory_class.to_s
+    else
+      @musicianship_class.to_s
     end
   end
 
   def event3
-    return @masterclass
+    return @masterclass.to_s
   end
 
   def event6
+    puts "HELP combo/split" if early_combo? && early_split?
     if early_combo?
-      @combo
-    elsif early_split?
-      @split
+      @combo.to_s
+    else
+      @split.to_s
     end
   end
 
   def event7
     if @combo.to_s.split(/_/)[0] == "late"
-      @combo
-    elsif @split.to_s.split(/_/)[0] == "late"
-      @split
+      @combo.to_s
+    else
+      @split.to_s
     end
   end
 
@@ -90,6 +89,10 @@ class Student
     puts "EV7:#{event7}"
   end
 
+  def summary_csv
+    [@lname, @fname, full_instrument].join(",")
+  end
+
   def csv_row
     [
       @lname,
@@ -104,6 +107,6 @@ class Student
       event3,
       event6,
       event7
-    ].join(',')
+    ].map(&:to_s).join(',')
   end
 end

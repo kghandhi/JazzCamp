@@ -14,11 +14,10 @@ class Camp
   attr_accessor :students
   attr_accessor :students_by_instrument
 
-  def initialize(name, number_of_rooms)
+  def initialize(name)
     @name = name
     @students = []
     @students_by_instrument = _empty_students_by_instrument
-    @number_of_combos = number_of_rooms * 2 # || num_drummers
   end
 
   def _empty_students_by_instrument
@@ -29,8 +28,8 @@ class Camp
     # Theory Class for drummers and vocalists
     # Drummers go in Drum theory (late) if they do not have a theory score
     @students_by_instrument[:drums].each do |drummer|
-      if drummer.theory_score.nil?
-        drum_kid.theory_class = :drum_theory
+      if drummer.theory_score == 0
+        drummer.theory_class = :drum_theory
       else
         drummer.theory_class = "late_theory_#{theory_level(drummer)}".to_sym
       end
@@ -53,21 +52,25 @@ class Camp
       student.musicianship_class.nil? && student.theory_class.nil?
     end
 
-    theory_score_ranked = rest.sort_by(&:theory_score)
-    early, late = _zipper_split(theory_score_ranked)
+    early_theory, late_theory = _zipper_split(rest.sort_by(&:theory_score))
 
-    early.map { |student|
+    early_theory.map { |student|
       student.theory_class = "early_theory_#{theory_level(student)}".to_sym
     }
-    late.map { |student|
+    late_theory.map { |student|
       student.theory_class = "late_theory_#{theory_level(student)}".to_sym
     }
 
-    _schedule_musicianship(early, :early)
-    _schedule_musicianship(late, :late)
+    # students with early theory have late musicianship and visa versa
+    _schedule_musicianship(:late, early_theory)
+    _schedule_musicianship(:early, late_theory)
   end
 
-  def _schedule_musicianship(students, period)
+  def _in_range(max_score, potential)
+    (max_score - potential.musicianship_score).abs <= 1
+  end
+
+  def _schedule_musicianship(period, students)
     piano_type = students.select { |student| PIANO_TYPE.include?(student.instrument) }
     piano_type.sort_by!(&:musicianship_score)
 
@@ -77,17 +80,47 @@ class Camp
     other_type = students - piano_type - ampy_type
     other_type.sort_by!(&:musicianship_score)
 
-    CLASSROOMS.shuffle.each_with_index do |room,level|
-      pianos = piano_type.pop(room.num_pianos)
+    # should shuffle
+    CLASSROOMS.each_with_index do |room,level|
+      max_mus_score = [piano_type, other_type, ampy_type].map do |ss|
+        ss.length > 0 ? ss.last.musicianship_score : 0
+      end.max
+      instruments = []
+      num_pianos = 0
+      while num_pianos <= room.num_pianos && piano_type.length > 0 && _in_range(max_mus_score, piano_type.last)
+        instruments << piano_type.pop
+        num_pianos += 1
+      end
 
-      num_amps = room.num_amps
-      num_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
-      amps = ampy_type.pop(num_amps)
+      num_amps = 0
+      potential_amps = room.num_amps
+      potential_amps += instruments.length != room.num_pianos ? room.num_pianos - instruments.length : 0
+      while num_amps <= potential_amps && ampy_type.length > 0 && _in_range(max_mus_score, ampy_type.last)
+        instruments << ampy_type.pop
+        num_amps += 1
+      end
 
-      other = other_type.pop(room.capacity - amps.length - pianos.length)
+      num_other = 0
+      potential_other = room.capacity - instruments.length
+      while num_other <= potential_other && other_type.length > 0 && _in_range(max_mus_score, other_type.last)
+        instruments << other_type.pop
+        num_other += 1
+      end
+      puts "#{num_pianos}, #{num_amps}, #{num_other} = #{room.capacity}"
 
       class_label = "#{period}_musicianship_#{level}".to_sym
-      (pianos + amps + other).map { |student| student.musicianship_class = class_label }
+      instruments.map { |student| student.musicianship_class = class_label }
+
+      # pianos = piano_type.pop(room.num_pianos)
+      #
+      # num_amps = room.num_amps
+      # num_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
+      # amps = ampy_type.pop(num_amps)
+      #
+      # other = other_type.pop(room.capacity - amps.length - pianos.length)
+      #
+      # class_label = "#{period}_musicianship_#{level}".to_sym
+      # (pianos + amps + other).map { |student| student.musicianship_class = class_label }
     end
   end
 
@@ -96,6 +129,7 @@ class Camp
   end
 
   def schedule_masterclass
+    # TODO fix
     @students_by_instrument[:clarinet].each { |clarinet_kid| clarinet_kid.masterclass = :clarinet_masterclass }
     @students_by_instrument[:flute].each { |flute_kid| flute_kid.masterclass = :flute_masterclass }
     @students_by_instrument[:voice].each { |vocal_kid| vocal_kid.masterclass = :voice_masterclass}
@@ -112,33 +146,39 @@ class Camp
   def _split_into_masterclasses(instrument, num)
     students = @students_by_instrument[instrument]
     students.concat(@students_by_instrument[:vibes]) if instrument == :piano
-    if num == 2
-      levels = {
-        1 => (0...3),
-        2 => (3..6),
-      }
-    elsif students.any? { |student| student.combo_score == 6 }
-    # for sax consider just splitting evenly?
-      levels = {
-        1 => (0...2),
-        2 => (2...4),
-        3 => (4...6),
-        4 => (6..6),
-      }
-    else
-      levels = {
-        1 => (0...2),
-        2 => (2...4),
-        3 => (4...5),
-        4 => (5..6),
-      }
-    end
 
-    students.each do |student|
-      level = (levels.select { |level| levels[level].include?(student.combo_score) }).first[0]
-
-      student.masterclass = (instrument.to_s + "_masterclass_#{level}").to_sym
+    groups = _in_groups(students, num)
+    groups.each do |level,students_in_level|
+      class_name = (instrument.to_s + "_masterclass_#{level}").to_sym
+      students_in_level.map { |student| student.masterclass = class_name }
     end
+    # if num == 2
+    #   levels = {
+    #     1 => (0...3),
+    #     2 => (3..6),
+    #   }
+    # elsif students.any? { |student| student.combo_score == 6 }
+    # # for sax consider just splitting evenly?
+    #   levels = {
+    #     1 => (0...2),
+    #     2 => (2...4),
+    #     3 => (4...6),
+    #     4 => (6..6),
+    #   }
+    # else
+    #   levels = {
+    #     1 => (0...2),
+    #     2 => (2...4),
+    #     3 => (4...5),
+    #     4 => (5..6),
+    #   }
+    # end
+    #
+    # students.each do |student|
+    #   level = (levels.select { |level| levels[level].include?(student.combo_score) }).first[0]
+    #
+    #   student.masterclass = (instrument.to_s + "_masterclass_#{level}").to_sym
+    # end
   end
 
   def _sort_by_two(students)
@@ -189,8 +229,8 @@ class Camp
     _schedule_split(:early, early_students)
     _schedule_split(:late, late_students)
 
-    _schedule_combo(:early, early_drums, early_bass, early_guitars, early_horns)
-    _schedule_combo(:late, late_drums, late_bass, late_guitars, late_horns)
+    _schedule_combo(:late, early_drums, early_bass, early_guitars, early_horns)
+    _schedule_combo(:early, late_drums, late_bass, late_guitars, late_horns)
   end
 
   def _schedule_combo(period, drummers, bassists, guitarists, horns)
@@ -205,7 +245,6 @@ class Camp
       end
 
       curr_combo += horn_groups[level]
-      # curr_combo += horns.pop(room.capacity - curr_combo.length) if horns.length > 0
 
       class_label = "#{period}_combo_#{level}".to_sym
       curr_combo.map { |student| student.combo = class_label }
@@ -216,8 +255,7 @@ class Camp
   def _schedule_split(period, students)
     students.sort_by!(&:combo_score)
 
-    groups_of_people = _in_groups(students, 3)
-    groups_of_people.each do |level,students|
+    _in_groups(students, 3).each do |level,students|
       class_name = "#{period}_split_#{level}".to_sym
       students.map { |student| student.split = class_name }
     end
@@ -225,10 +263,7 @@ class Camp
 
   def _zipper_split(sorted_students)
     grouped = sorted_students.each_with_index.group_by { |student,rank| rank % 2 }
-    first_set = grouped[0].map(&:first)
-    second_set = grouped[1].map(&:first)
-
-    [first_set, second_set]
+    [grouped[0].map(&:first), grouped[1].map(&:first)]
   end
 
   def _in_groups(students, number)
@@ -244,17 +279,5 @@ class Camp
       start += class_size
     end
     groups
-  end
-
-  def write_output
-    alphebetized_students = @students.sort_by { |student| student.lname }
-
-    this_camp_directory = "#{Dir.pwd}/#{@name}"
-    output_filename = "#{Time.now.to_i}_output.csv"
-    Dir.mkdir(this_camp_directory)
-    output_file = File.open("#{this_camp_directory}/#{output_filename}", "w")
-
-    alphebetized_students.each { |student| output_file.puts(student.csv_row) }
-    puts "Your output is done and located at #{this_camp_directory}/#{output_filename}"
   end
 end
