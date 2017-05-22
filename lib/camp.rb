@@ -70,6 +70,15 @@ class Camp
     (max_score - potential.musicianship_score).abs <= 1
   end
 
+  def fill_positions(full_set, positions_to_fill, max_mus_score)
+    instruments = []
+
+    while instruments.length < positions_to_fill && full_set.length > 0 && _in_range(max_mus_score, full_set.last)
+      instruments << full_set.pop
+    end
+    instruments
+  end
+
   def _schedule_musicianship(period, students)
     piano_type = students.select { |student| PIANO_TYPE.include?(student.instrument) }
     piano_type.sort_by!(&:musicianship_score)
@@ -81,46 +90,23 @@ class Camp
     other_type.sort_by!(&:musicianship_score)
 
     # should shuffle
+    CLASSROOMS.sort_by! { |room| - (room.num_pianos + room.num_amps) }
     CLASSROOMS.each_with_index do |room,level|
       max_mus_score = [piano_type, other_type, ampy_type].map do |ss|
         ss.length > 0 ? ss.last.musicianship_score : 0
       end.max
-      instruments = []
-      num_pianos = 0
-      while num_pianos <= room.num_pianos && piano_type.length > 0 && _in_range(max_mus_score, piano_type.last)
-        instruments << piano_type.pop
-        num_pianos += 1
-      end
 
-      num_amps = 0
+      pianos = fill_positions(piano_type, room.num_pianos, max_mus_score)
+
       potential_amps = room.num_amps
-      potential_amps += instruments.length != room.num_pianos ? room.num_pianos - instruments.length : 0
-      while num_amps <= potential_amps && ampy_type.length > 0 && _in_range(max_mus_score, ampy_type.last)
-        instruments << ampy_type.pop
-        num_amps += 1
-      end
+      potential_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
+      amps = fill_positions(ampy_type, potential_amps, max_mus_score)
 
-      num_other = 0
-      potential_other = room.capacity - instruments.length
-      while num_other <= potential_other && other_type.length > 0 && _in_range(max_mus_score, other_type.last)
-        instruments << other_type.pop
-        num_other += 1
-      end
-      puts "#{num_pianos}, #{num_amps}, #{num_other} = #{room.capacity}"
+      potential_other = room.capacity - pianos.length - amps.length
+      others = fill_positions(other_type, potential_other, max_mus_score)
 
       class_label = "#{period}_musicianship_#{level}".to_sym
-      instruments.map { |student| student.musicianship_class = class_label }
-
-      # pianos = piano_type.pop(room.num_pianos)
-      #
-      # num_amps = room.num_amps
-      # num_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
-      # amps = ampy_type.pop(num_amps)
-      #
-      # other = other_type.pop(room.capacity - amps.length - pianos.length)
-      #
-      # class_label = "#{period}_musicianship_#{level}".to_sym
-      # (pianos + amps + other).map { |student| student.musicianship_class = class_label }
+      (pianos + amps + others).map { |student| student.musicianship_class = class_label }
     end
   end
 
