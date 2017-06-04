@@ -38,7 +38,7 @@ class Student
 
   def event1
     puts "HELP theory/musicianship" if early_theory? && early_musicianship?
-    if early_theory?
+    if early_theory? && !early_musicianship?
       @theory_class.to_s
     else
       @musicianship_class.to_s
@@ -46,7 +46,7 @@ class Student
   end
 
   def event2
-    if !early_theory? #@theory_class.to_s.split(/_/)[0] == "late"
+    if !early_theory? && early_musicianship?
       @theory_class.to_s
     else
       @musicianship_class.to_s
@@ -59,7 +59,7 @@ class Student
 
   def event6
     puts "HELP combo/split" if early_combo? && early_split?
-    if early_combo?
+    if early_combo? && !early_split?
       @combo.to_s
     else
       @split.to_s
@@ -67,7 +67,7 @@ class Student
   end
 
   def event7
-    if @combo.to_s.split(/_/)[0] == "late"
+    if !early_combo? && early_split?
       @combo.to_s
     else
       @split.to_s

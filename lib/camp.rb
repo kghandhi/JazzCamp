@@ -105,7 +105,7 @@ class Camp
       potential_other = room.capacity - pianos.length - amps.length
       others = fill_positions(other_type, potential_other, max_mus_score)
 
-      class_label = "#{period}_musicianship_#{level}".to_sym
+      class_label = "#{period}_musicianship_#{level + 1}".to_sym
       (pianos + amps + others).map { |student| student.musicianship_class = class_label }
     end
   end
@@ -131,11 +131,11 @@ class Camp
 
   def _split_into_masterclasses(instrument, num)
     students = @students_by_instrument[instrument]
-    students.concat(@students_by_instrument[:vibes]) if instrument == :piano
+    students += @students_by_instrument[:vibes] if instrument == :piano
 
     groups = _in_groups(students, num)
     groups.each do |level,students_in_level|
-      class_name = (instrument.to_s + "_masterclass_#{level}").to_sym
+      class_name = (instrument.to_s + "_masterclass_#{level + 1}").to_sym
       students_in_level.map { |student| student.masterclass = class_name }
     end
     # if num == 2
@@ -172,8 +172,8 @@ class Camp
     students.sort_by do |student|
       num_instruments_in_family = total_instruments(student.instrument)
       relative_rank = student.in_rank.to_f / num_instruments_in_family.to_f
-      [student.combo_score, - relative_rank]
-    end
+      [- relative_rank, student.combo_score]
+    end.reverse
   end
 
   def total_instruments(instrument)
@@ -200,41 +200,47 @@ class Camp
     drums = @students_by_instrument[:drums].sort_by(&:in_rank)
     bass = @students_by_instrument[:bass].sort_by(&:in_rank) # this is short
     guitars = @students_by_instrument[:guitar].sort_by(&:in_rank)
-    # assert guitars.length == drums.length?
-    horns = @students - @students_by_instrument[:voice] - drums - bass - guitars
+    pianos = @students_by_instrument[:piano].sort_by(&:in_rank)
+
+    horns = @students - @students_by_instrument[:voice] - drums - bass - guitars - pianos
     horns = _sort_by_two(horns)
 
     early_drums, late_drums = _zipper_split(drums)
     early_bass, late_bass = _zipper_split(bass)
     early_guitars, late_guitars = _zipper_split(guitars)
+    early_pianos, late_pianos = _zipper_split(pianos)
     early_horns, late_horns = _zipper_split(horns)
 
-    early_students = early_drums + early_bass + early_guitars + early_horns
-    late_students = late_drums + late_bass + late_guitars + late_horns
+    early_students = early_drums + early_bass + early_guitars + early_pianos + early_horns
+    late_students = late_drums + late_bass + late_guitars + late_pianos + late_horns
 
     _schedule_split(:early, early_students)
     _schedule_split(:late, late_students)
 
-    _schedule_combo(:late, early_drums, early_bass, early_guitars, early_horns)
-    _schedule_combo(:early, late_drums, late_bass, late_guitars, late_horns)
+    _schedule_combo(:late, early_drums, early_bass, early_guitars, early_pianos, early_horns)
+    _schedule_combo(:early, late_drums, late_bass, late_guitars, late_pianos, late_horns)
   end
 
-  def _schedule_combo(period, drummers, bassists, guitarists, horns)
+  def _schedule_combo(period, drummers, bassists, guitarists, pianos, horns)
     horn_groups = _in_groups(horns, drummers.length)
+    piano_groups = _in_groups(pianos, drummers.length)
+    guitar_groups = _in_groups(guitarists, drummers.length)
+    drummers.reverse!
+    bassists.reverse!
 
     CLASSROOMS.take(drummers.length).each_with_index do |room,level|
       curr_combo = []
       curr_combo << drummers.pop if drummers.length > 0
-      curr_combo << guitarists.pop if guitarists.length > 0 # take two if the room is big enough and if they're same combo score
       if bassists.length > 0 && curr_combo.map { |s| s.combo_score.floor}.include?(bassists.last.combo_score.floor)
         curr_combo << bassists.pop if bassists.length > 0
       end
 
       curr_combo += horn_groups[level]
+      curr_combo += piano_groups[level]
+      curr_combo += guitar_groups[level]
 
-      class_label = "#{period}_combo_#{level}".to_sym
+      class_label = "#{period}_combo_#{level + 1}".to_sym
       curr_combo.map { |student| student.combo = class_label }
-      nil
     end
   end
 
@@ -242,7 +248,7 @@ class Camp
     students.sort_by!(&:combo_score)
 
     _in_groups(students, 3).each do |level,students|
-      class_name = "#{period}_split_#{level}".to_sym
+      class_name = "#{period}_split_#{level + 1}".to_sym
       students.map { |student| student.split = class_name }
     end
   end
