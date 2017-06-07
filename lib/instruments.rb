@@ -25,13 +25,6 @@ STRINGS = [
   :violin,
 ]
 
-RHYTHMS = [
-  :bass,
-  :guitar,
-  :piano,
-  :vibes,
-]
-
 PIANO_TYPE = [
   :piano,
   :vibes,
@@ -51,4 +44,17 @@ WOODWINDS = [
 BRASS = [
   :trumpet,
   :trombone,
+]
+
+
+COMBO_UNIQUE_INSTRUMENTS = [
+  [:cello, nil],
+  [:clarinet, nil],
+  [:flute, nil],
+  [:saxophone, :baritone],
+  [:saxophone, :soprano],
+  [:trombone, nil],
+  [:trumpet, nil],
+  [:viola, nil],
+  [:violin, nil],
 ]

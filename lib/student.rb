@@ -1,10 +1,11 @@
 class Student
-  attr_reader :lname, :fname, :instrument, :in_rank, :theory_score, :musicianship_score, :combo_score
+  attr_reader :lname, :fname, :instrument, :in_rank, :theory_score, :musicianship_score, :combo_score, :variant
   attr_accessor :theory_class, :musicianship_class, :masterclass, :combo, :split
 
   def initialize(student_params)
     @instrument = student_params.instrument
     @instrument_variation = student_params.variant
+    @variant = student_params.variant
     @fname = student_params.fname
     @lname = student_params.lname
 

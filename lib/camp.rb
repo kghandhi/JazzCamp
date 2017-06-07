@@ -221,6 +221,32 @@ class Camp
     _schedule_combo(:early, late_drums, late_bass, late_guitars, late_pianos, late_horns)
   end
 
+  def _uniquely_get_horns(all_horns, max_number)
+    puts "BROKEN"
+    # uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
+    # returned_horns = []
+    # num_brass = 0
+    # num_sax = 0
+    # puts "All horns starts at #{all_horns.length}"
+    # all_horns.each do |student|
+    #   return returned_horns if returned_horns.length >= max_number
+    #   key_to_hash = [student.instrument, student.variant]
+    #   if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
+    #     if uniqueness_hash[key_to_hash] == 0
+    #       returned_horns << student
+    #       uniqueness_hash[key_to_hash] = 1
+    #       all_horns.delete(student)
+    #     end
+    #   else
+    #     puts key_to_hash
+    #     returned_horns << student
+    #     all_horns.delete(student)
+    #   end
+    # end
+    # puts "all_horns=#{all_horns.length},returned_horns=#{returned_horns.length}"
+    # returned_horns
+  end
+
   def _schedule_combo(period, drummers, bassists, guitarists, pianos, horns)
     horn_groups = _in_groups(horns, drummers.length)
     piano_groups = _in_groups(pianos, drummers.length)
@@ -235,7 +261,12 @@ class Camp
         curr_combo << bassists.pop if bassists.length > 0
       end
 
-      curr_combo += horn_groups[level]
+      max_horns = horn_groups[level].length
+      puts max_horns
+
+      curr_combo += _uniquely_get_horns(horns, max_horns)
+
+      # curr_combo += horn_groups[level]
       curr_combo += piano_groups[level]
       curr_combo += guitar_groups[level]
 
