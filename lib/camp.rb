@@ -192,6 +192,27 @@ class Camp
     family.inject(0) {|sum,in_type| sum += @students_by_instrument[in_type].length }
   end
 
+  def _split_horns_evenly(all_horns)
+    grouped_by_instrument = all_horns.group_by { |student| [student.instrument, student.variant] }
+    early_students = []
+    late_students = []
+
+    equalizer = 0
+    grouped_by_instrument.each_pair do |instrument_tuple,students|
+      puts instrument_tuple
+      sorted_students = _sort_by_two(students)
+      if equalizer % 2 == 0
+        early_section, late_section = _zipper_split(sorted_students)
+      else
+        late_section, early_section = _zipper_split(sorted_students)
+      end
+      early_students += early_section
+      late_students += late_section
+      equalizer += 1
+    end
+    [_sort_by_two(early_students), _sort_by_two(late_students)]
+  end
+
   def schedule_combo_split_classes
     # do not handle vocalists
     @students_by_instrument[:voice].each { |student| student.combo = "vocal_combo" }
@@ -203,13 +224,14 @@ class Camp
     pianos = @students_by_instrument[:piano].sort_by(&:in_rank)
 
     horns = @students - @students_by_instrument[:voice] - drums - bass - guitars - pianos
-    horns = _sort_by_two(horns)
+    # horns = _sort_by_two(horns)
+    # early_horns, late_horns = _zipper_split(horns)
+    early_horns, late_horns = _split_horns_evenly(horns)
 
     early_drums, late_drums = _zipper_split(drums)
     early_bass, late_bass = _zipper_split(bass)
     early_guitars, late_guitars = _zipper_split(guitars)
     early_pianos, late_pianos = _zipper_split(pianos)
-    early_horns, late_horns = _zipper_split(horns)
 
     early_students = early_drums + early_bass + early_guitars + early_pianos + early_horns
     late_students = late_drums + late_bass + late_guitars + late_pianos + late_horns
@@ -222,29 +244,39 @@ class Camp
   end
 
   def _uniquely_get_horns(all_horns, max_number)
-    puts "BROKEN"
-    # uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
-    # returned_horns = []
-    # num_brass = 0
-    # num_sax = 0
-    # puts "All horns starts at #{all_horns.length}"
-    # all_horns.each do |student|
-    #   return returned_horns if returned_horns.length >= max_number
-    #   key_to_hash = [student.instrument, student.variant]
-    #   if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
-    #     if uniqueness_hash[key_to_hash] == 0
-    #       returned_horns << student
-    #       uniqueness_hash[key_to_hash] = 1
-    #       all_horns.delete(student)
-    #     end
-    #   else
-    #     puts key_to_hash
-    #     returned_horns << student
-    #     all_horns.delete(student)
-    #   end
-    # end
-    # puts "all_horns=#{all_horns.length},returned_horns=#{returned_horns.length}"
-    # returned_horns
+    puts all_horns.length
+    uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
+    returned_horns = []
+    num_brass = 0
+    num_sax = 0
+
+    all_horns.each do |student|
+      return returned_horns if returned_horns.length >= max_number
+
+      if (student.instrument == :sax && num_sax < 3) || (BRASS.include?(student.instrument) && num_brass < 2) || !((BRASS << :sax).include?(student.instrument))
+        added_student = nil
+        key_to_hash = [student.instrument, student.variant]
+        if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
+          if uniqueness_hash[key_to_hash] == 0
+            uniqueness_hash[key_to_hash] += 1
+            added_student = student
+          end
+        else
+          added_student = student
+        end
+        if !added_student.nil?
+          if added_student.instrument == :sax
+            num_sax += 1
+          elsif BRASS.include?(added_student.instrument)
+            num_brass += 1
+          end
+          returned_horns << student
+          all_horns.delete(student)
+        end
+      end
+    end
+    puts "all_horns=#{all_horns.length},returned_horns=#{returned_horns.length}"
+    returned_horns
   end
 
   def _schedule_combo(period, drummers, bassists, guitarists, pianos, horns)
@@ -262,9 +294,10 @@ class Camp
       end
 
       max_horns = horn_groups[level].length
-      puts max_horns
 
-      curr_combo += _uniquely_get_horns(horns, max_horns)
+      curr_horns = _uniquely_get_horns(horns, max_horns)
+      puts "expected #{max_horns}, got #{curr_horns.length}"
+      puts (curr_horns.map { |s| s.full_instrument }).join(",")
 
       # curr_combo += horn_groups[level]
       curr_combo += piano_groups[level]
@@ -286,7 +319,9 @@ class Camp
 
   def _zipper_split(sorted_students)
     grouped = sorted_students.each_with_index.group_by { |student,rank| rank % 2 }
-    [grouped[0].map(&:first), grouped[1].map(&:first)]
+    first_half = grouped[0].nil? ? [] : grouped[0].map(&:first)
+    second_half = grouped[1].nil? ? [] : grouped[1].map(&:first)
+    [first_half, second_half]
   end
 
   def _in_groups(students, number)
