@@ -69,8 +69,7 @@ class RosterPrinter
     puts "----------------------------------------"
     combos.sort.each do |class_name, students|
       _print_roster(class_name, students)
-      puts "#{class_name} has #{students.length} students:"
-      # puts (students.map { |s| "#{s.full_instrument} (#{s.in_rank},#{s.combo_score})" } ).join(";")
+      puts "#{class_name} has #{students.length} students"
     end
   end
 

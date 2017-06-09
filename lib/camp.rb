@@ -81,7 +81,7 @@ class Camp
       voice_kid.musicianship_class = :late_vocal_musicianship
     end
 
-    rest = @students.select do |student|
+    rest = @students.dup.select do |student|
       student.musicianship_class.nil? && student.theory_class.nil?
     end
 
@@ -161,8 +161,9 @@ class Camp
   end
 
   def _split_into_masterclasses(instrument, num)
-    students = @students_by_instrument[instrument]
-    students += @students_by_instrument[:vibes] if instrument == :piano
+    students = @students_by_instrument[instrument].dup
+    students += @students_by_instrument[:vibes].dup if instrument == :piano
+    students.sort_by!(&:combo_score)
 
     groups = _in_groups(students, num)
     groups.each do |level,students_in_level|
@@ -206,12 +207,12 @@ class Camp
     @students_by_instrument[:voice].each { |student| student.combo = "vocal_combo" }
     @students_by_instrument[:voice].each { |student| student.split = "vocal_split" }
 
-    drums = @students_by_instrument[:drums].sort_by(&:in_rank)
-    bass = @students_by_instrument[:bass].sort_by(&:in_rank) # this is short
-    guitars = @students_by_instrument[:guitar].sort_by(&:in_rank)
-    pianos = @students_by_instrument[:piano].sort_by(&:in_rank)
+    drums = @students_by_instrument[:drums].dup.sort_by(&:in_rank)
+    bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank) # this is short
+    guitars = @students_by_instrument[:guitar].dup.sort_by(&:in_rank)
+    pianos = @students_by_instrument[:piano].dup.sort_by(&:in_rank)
 
-    horns = @students - @students_by_instrument[:voice] - drums - bass - guitars - pianos
+    horns = @students.dup - @students_by_instrument[:voice].dup - drums - bass - guitars - pianos
     early_horns, late_horns = _split_horns_evenly(horns)
 
     early_drums, late_drums = _zipper_split(drums)
@@ -238,7 +239,7 @@ class Camp
     all_horns.each do |student|
       return selected if selected.length >= max_number
 
-      next if student.instrument == :sax && num_sax >= MAX_SAX_PER_COMBO
+      next if student.instrument == :saxophone && num_sax >= MAX_SAX_PER_COMBO
       next if BRASS.include?(student.instrument) && num_brass >= MAX_BRASS_PER_COMBO
 
       added_student = nil
@@ -253,7 +254,7 @@ class Camp
       end
 
       if !added_student.nil?
-        if added_student.instrument == :sax
+        if added_student.instrument == :saxophone
           num_sax += 1
         elsif BRASS.include?(added_student.instrument)
           num_brass += 1
