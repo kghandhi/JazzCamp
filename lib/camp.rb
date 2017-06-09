@@ -1,3 +1,4 @@
+# require 'pry'
 require_relative "student"
 require_relative "classroom"
 require_relative "instruments"
@@ -9,6 +10,8 @@ THEORY_BUCKETS = {
   4 => (45..59),
   5 => (60..62)
 }
+MAX_SAX_PER_COMBO = 3
+MAX_BRASS_PER_COMBO = 2
 
 class Camp
   attr_accessor :students
@@ -18,10 +21,40 @@ class Camp
     @name = name
     @students = []
     @students_by_instrument = _empty_students_by_instrument
+    @counts_by_family = {
+      :strings => num_students_in_family(STRINGS),
+      :brass => num_students_in_family(BRASS),
+      :woodwinds => num_students_in_family(WOODWINDS),
+      :vibes => num_students_in_family([:vibes]),
+      :piano => num_students_in_family([:piano]),
+      :guitar => num_students_in_family([:guitar]),
+      :bass => num_students_in_family([:bass]),
+      :drums => num_students_in_family([:drums]),
+    }
   end
 
   def _empty_students_by_instrument
     Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
+  end
+
+  def num_students_in_family(family)
+    family.reduce(0) { |tot_in_family,instrument|
+      tot_in_family += students_by_instrument[instrument].reduce(0) { |sum,xs| sum += xs.length }
+    }
+  end
+
+  def total_instruments_in_family(instrument)
+    family = ([
+      STRINGS,
+      BRASS,
+      WOODWINDS,
+      [:vibes],
+      [:piano],
+      [:guitar],
+      [:bass],
+      [:drums]
+    ].select { |family| family.include?(instrument) }).first
+    @counts_by_family[family]
   end
 
   def schedule_theory_musicianship_classes
@@ -29,7 +62,7 @@ class Camp
     # Drummers go in Drum theory (late) if they do not have a theory score
     @students_by_instrument[:drums].each do |drummer|
       if drummer.theory_score == 0
-        drummer.theory_class = :drum_theory
+        drummer.theory_class = :late_drum_theory
       else
         drummer.theory_class = "late_theory_#{theory_level(drummer)}".to_sym
       end
@@ -42,10 +75,10 @@ class Camp
 
     # Musicianship class for drummers and vocalists
     @students_by_instrument[:drums].each do |drum_kid|
-      drum_kid.musicianship_class = :drum_rudiments
+      drum_kid.musicianship_class = :early_drum_rudiments
     end
     @students_by_instrument[:voice].each do |voice_kid|
-      voice_kid.musicianship_class = :vocal_musicianship
+      voice_kid.musicianship_class = :late_vocal_musicianship
     end
 
     rest = @students.select do |student|
@@ -70,7 +103,7 @@ class Camp
     (max_score - potential.musicianship_score).abs <= 1
   end
 
-  def fill_positions(full_set, positions_to_fill, max_mus_score)
+  def _pull_qualified(full_set, positions_to_fill, max_mus_score)
     instruments = []
 
     while instruments.length < positions_to_fill && full_set.length > 0 && _in_range(max_mus_score, full_set.last)
@@ -89,21 +122,20 @@ class Camp
     other_type = students - piano_type - ampy_type
     other_type.sort_by!(&:musicianship_score)
 
-    # should shuffle
     CLASSROOMS.sort_by! { |room| - (room.num_pianos + room.num_amps) }
     CLASSROOMS.each_with_index do |room,level|
       max_mus_score = [piano_type, other_type, ampy_type].map do |ss|
         ss.length > 0 ? ss.last.musicianship_score : 0
       end.max
 
-      pianos = fill_positions(piano_type, room.num_pianos, max_mus_score)
+      pianos = _pull_qualified(piano_type, room.num_pianos, max_mus_score)
 
       potential_amps = room.num_amps
       potential_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
-      amps = fill_positions(ampy_type, potential_amps, max_mus_score)
+      amps = _pull_qualified(ampy_type, potential_amps, max_mus_score)
 
       potential_other = room.capacity - pianos.length - amps.length
-      others = fill_positions(other_type, potential_other, max_mus_score)
+      others = _pull_qualified(other_type, potential_other, max_mus_score)
 
       class_label = "#{period}_musicianship_#{level + 1}".to_sym
       (pianos + amps + others).map { |student| student.musicianship_class = class_label }
@@ -115,7 +147,6 @@ class Camp
   end
 
   def schedule_masterclass
-    # TODO fix
     @students_by_instrument[:clarinet].each { |clarinet_kid| clarinet_kid.masterclass = :clarinet_masterclass }
     @students_by_instrument[:flute].each { |flute_kid| flute_kid.masterclass = :flute_masterclass }
     @students_by_instrument[:voice].each { |vocal_kid| vocal_kid.masterclass = :voice_masterclass}
@@ -138,59 +169,17 @@ class Camp
       class_name = (instrument.to_s + "_masterclass_#{level + 1}").to_sym
       students_in_level.map { |student| student.masterclass = class_name }
     end
-    # if num == 2
-    #   levels = {
-    #     1 => (0...3),
-    #     2 => (3..6),
-    #   }
-    # elsif students.any? { |student| student.combo_score == 6 }
-    # # for sax consider just splitting evenly?
-    #   levels = {
-    #     1 => (0...2),
-    #     2 => (2...4),
-    #     3 => (4...6),
-    #     4 => (6..6),
-    #   }
-    # else
-    #   levels = {
-    #     1 => (0...2),
-    #     2 => (2...4),
-    #     3 => (4...5),
-    #     4 => (5..6),
-    #   }
-    # end
-    #
-    # students.each do |student|
-    #   level = (levels.select { |level| levels[level].include?(student.combo_score) }).first[0]
-    #
-    #   student.masterclass = (instrument.to_s + "_masterclass_#{level}").to_sym
-    # end
   end
 
-  def _sort_by_two(students)
+  def _sort_by_inrank_combo(students)
     # sort by the highness of their combo score and the lowness of their fractional in_rank ([0,1] rank / # in)
     students.sort_by do |student|
-      num_instruments_in_family = total_instruments(student.instrument)
+      num_instruments_in_family = total_instruments_in_family(student.instrument)
       relative_rank = student.in_rank.to_f / num_instruments_in_family.to_f
       [- relative_rank, student.combo_score]
     end.reverse
   end
 
-  def total_instruments(instrument)
-    # TODO memoize
-    family = ([
-      STRINGS,
-      BRASS,
-      WOODWINDS,
-      [:vibes],
-      [:piano],
-      [:guitar],
-      [:bass],
-      [:drums]
-    ].select { |family| family.include?(instrument) }).first
-
-    family.inject(0) {|sum,in_type| sum += @students_by_instrument[in_type].length }
-  end
 
   def _split_horns_evenly(all_horns)
     grouped_by_instrument = all_horns.group_by { |student| [student.instrument, student.variant] }
@@ -199,8 +188,7 @@ class Camp
 
     equalizer = 0
     grouped_by_instrument.each_pair do |instrument_tuple,students|
-      puts instrument_tuple
-      sorted_students = _sort_by_two(students)
+      sorted_students = _sort_by_inrank_combo(students)
       if equalizer % 2 == 0
         early_section, late_section = _zipper_split(sorted_students)
       else
@@ -210,7 +198,7 @@ class Camp
       late_students += late_section
       equalizer += 1
     end
-    [_sort_by_two(early_students), _sort_by_two(late_students)]
+    [_sort_by_inrank_combo(early_students), _sort_by_inrank_combo(late_students)]
   end
 
   def schedule_combo_split_classes
@@ -224,8 +212,6 @@ class Camp
     pianos = @students_by_instrument[:piano].sort_by(&:in_rank)
 
     horns = @students - @students_by_instrument[:voice] - drums - bass - guitars - pianos
-    # horns = _sort_by_two(horns)
-    # early_horns, late_horns = _zipper_split(horns)
     early_horns, late_horns = _split_horns_evenly(horns)
 
     early_drums, late_drums = _zipper_split(drums)
@@ -244,39 +230,39 @@ class Camp
   end
 
   def _uniquely_get_horns(all_horns, max_number)
-    puts all_horns.length
     uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
-    returned_horns = []
+    selected = []
     num_brass = 0
     num_sax = 0
 
     all_horns.each do |student|
-      return returned_horns if returned_horns.length >= max_number
+      return selected if selected.length >= max_number
 
-      if (student.instrument == :sax && num_sax < 3) || (BRASS.include?(student.instrument) && num_brass < 2) || !((BRASS << :sax).include?(student.instrument))
-        added_student = nil
-        key_to_hash = [student.instrument, student.variant]
-        if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
-          if uniqueness_hash[key_to_hash] == 0
-            uniqueness_hash[key_to_hash] += 1
-            added_student = student
-          end
-        else
+      next if student.instrument == :sax && num_sax >= MAX_SAX_PER_COMBO
+      next if BRASS.include?(student.instrument) && num_brass >= MAX_BRASS_PER_COMBO
+
+      added_student = nil
+      key_to_hash = [student.instrument, student.variant]
+      if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
+        if uniqueness_hash[key_to_hash] == 0
+          uniqueness_hash[key_to_hash] += 1
           added_student = student
         end
-        if !added_student.nil?
-          if added_student.instrument == :sax
-            num_sax += 1
-          elsif BRASS.include?(added_student.instrument)
-            num_brass += 1
-          end
-          returned_horns << student
-          all_horns.delete(student)
+      else
+        added_student = student
+      end
+
+      if !added_student.nil?
+        if added_student.instrument == :sax
+          num_sax += 1
+        elsif BRASS.include?(added_student.instrument)
+          num_brass += 1
         end
+        selected << student
+        all_horns.delete(student)
       end
     end
-    puts "all_horns=#{all_horns.length},returned_horns=#{returned_horns.length}"
-    returned_horns
+    selected
   end
 
   def _schedule_combo(period, drummers, bassists, guitarists, pianos, horns)
@@ -294,12 +280,8 @@ class Camp
       end
 
       max_horns = horn_groups[level].length
+      curr_combo += _uniquely_get_horns(horns, max_horns)
 
-      curr_horns = _uniquely_get_horns(horns, max_horns)
-      puts "expected #{max_horns}, got #{curr_horns.length}"
-      puts (curr_horns.map { |s| s.full_instrument }).join(",")
-
-      # curr_combo += horn_groups[level]
       curr_combo += piano_groups[level]
       curr_combo += guitar_groups[level]
 
@@ -333,7 +315,7 @@ class Camp
 
     number.times do |class_level|
       class_size = division + (modulo > 0 && modulo > class_level ? 1 : 0)
-      groups[class_level] = students[start...(start + class_size + 1)]
+      groups[class_level] = students[start...(start + class_size)]
       start += class_size
     end
     groups

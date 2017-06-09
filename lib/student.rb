@@ -33,12 +33,20 @@ class Student
     return @combo.to_s.split(/_/)[0] == "early"
   end
 
+  def late_combo?
+    return @combo.to_s.split(/_/)[0] == "late"
+  end
+
   def early_split?
     return @split.to_s.split(/_/)[0] == "early"
   end
 
+  def late_split?
+    return @split.to_s.split(/_/)[0] == "late"
+  end
+
   def event1
-    puts "HELP theory/musicianship" if early_theory? && early_musicianship?
+    puts "HELP theory/musicianship" if @theory_class.nil? || @musicianship_class.nil? #early_theory? && early_musicianship?
     if early_theory? && !early_musicianship?
       @theory_class.to_s
     else
@@ -59,19 +67,23 @@ class Student
   end
 
   def event6
-    puts "HELP combo/split" if early_combo? && early_split?
+    puts "HELP combo/split" if @combo.nil? || @split.nil? #early_combo? && early_split?
     if early_combo? && !early_split?
       @combo.to_s
-    else
+    elsif early_split?
       @split.to_s
+    else
+      ""
     end
   end
 
   def event7
-    if !early_combo? && early_split?
+    if late_combo?
       @combo.to_s
-    else
+    elsif late_split?
       @split.to_s
+    else
+      ""
     end
   end
 
