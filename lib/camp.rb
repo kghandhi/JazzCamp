@@ -181,7 +181,6 @@ class Camp
     end.reverse
   end
 
-
   def _split_horns_evenly(all_horns)
     grouped_by_instrument = all_horns.group_by { |student| [student.instrument, student.variant] }
     early_students = []
@@ -203,32 +202,67 @@ class Camp
   end
 
   def schedule_combo_split_classes
-    # do not handle vocalists
     @students_by_instrument[:voice].each { |student| student.combo = "vocal_combo" }
     @students_by_instrument[:voice].each { |student| student.split = "vocal_split" }
-
     drums = @students_by_instrument[:drums].dup.sort_by(&:in_rank)
     bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank) # this is short
     guitars = @students_by_instrument[:guitar].dup.sort_by(&:in_rank)
     pianos = @students_by_instrument[:piano].dup.sort_by(&:in_rank)
 
     horns = @students.dup - @students_by_instrument[:voice].dup - drums - bass - guitars - pianos
-    early_horns, late_horns = _split_horns_evenly(horns)
 
-    early_drums, late_drums = _zipper_split(drums)
-    early_bass, late_bass = _zipper_split(bass)
-    early_guitars, late_guitars = _zipper_split(guitars)
-    early_pianos, late_pianos = _zipper_split(pianos)
+    combo_groups = _split_into_combos(drums, bass, guitars, pianos, horns)
+    early_combo_student_groups, late_combo_student_groups = _zipper_split_combos(combo_groups)
+    early_combo_student_groups.each_with_index do |students,level|
+      label = "early_combo_#{level+1}".to_sym
+      students.map { |student| student.combo = label }
+    end
+    late_combo_student_groups.each_with_index do |students,level|
+      label = "late_combo_#{level+1}".to_sym
+      students.map { |student| student.combo = label }
+    end
+    early_combo_students = early_combo_student_groups.flatten
+    late_combo_students = late_combo_student_groups.flatten
 
-    early_students = early_drums + early_bass + early_guitars + early_pianos + early_horns
-    late_students = late_drums + late_bass + late_guitars + late_pianos + late_horns
-
-    _schedule_split(:early, early_students)
-    _schedule_split(:late, late_students)
-
-    _schedule_combo(:late, early_drums, early_bass, early_guitars, early_pianos, early_horns)
-    _schedule_combo(:early, late_drums, late_bass, late_guitars, late_pianos, late_horns)
+    _schedule_split(:early, late_combo_students)
+    _schedule_split(:late, early_combo_students)
   end
+
+  def _split_into_combos(drums, bass, guitars, pianos, horns)
+    horn_groups = _in_groups(horns, drums.length)
+    piano_groups = _in_groups(pianos, drums.length)
+    guitar_groups = _in_groups(guitars, drums.length)
+    drums.reverse!
+    bass.reverse!
+    combos = []
+    (CLASSROOMS + CLASSROOMS).take(drums.length).each_with_index do |room,level|
+      curr_combo = []
+      curr_combo << drums.pop if drums.length > 0
+      if bass.length > 0 && curr_combo.map { |s| s.combo_score.floor}.include?(bass.last.combo_score.floor)
+        curr_combo << bass.pop if bass.length > 0
+      end
+      curr_combo += piano_groups[level]
+      curr_combo += guitar_groups[level]
+
+      # max_horns = [horn_groups[level].length, room.capacity - curr_combo.length].min
+      max_horns = horn_groups[level].length
+      curr_horns = _uniquely_get_horns(horns, max_horns)
+      curr_combo += curr_horns
+      puts "expected #{max_horns} horns, but got #{curr_horns.length}: #{horns.length}"
+      combos << [level, curr_combo]
+    end
+    combos
+  end
+
+  def _schedule_split(period, students)
+    students.sort_by!(&:combo_score)
+
+    _in_groups(students, 3).each do |level,students|
+      class_name = "#{period}_split_#{level + 1}".to_sym
+      students.map { |student| student.split = class_name }
+    end
+  end
+
 
   def _uniquely_get_horns(all_horns, max_number)
     uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
@@ -266,38 +300,12 @@ class Camp
     selected
   end
 
-  def _schedule_combo(period, drummers, bassists, guitarists, pianos, horns)
-    horn_groups = _in_groups(horns, drummers.length)
-    piano_groups = _in_groups(pianos, drummers.length)
-    guitar_groups = _in_groups(guitarists, drummers.length)
-    drummers.reverse!
-    bassists.reverse!
-
-    CLASSROOMS.take(drummers.length).each_with_index do |room,level|
-      curr_combo = []
-      curr_combo << drummers.pop if drummers.length > 0
-      if bassists.length > 0 && curr_combo.map { |s| s.combo_score.floor}.include?(bassists.last.combo_score.floor)
-        curr_combo << bassists.pop if bassists.length > 0
-      end
-
-      max_horns = horn_groups[level].length
-      curr_combo += _uniquely_get_horns(horns, max_horns)
-
-      curr_combo += piano_groups[level]
-      curr_combo += guitar_groups[level]
-
-      class_label = "#{period}_combo_#{level + 1}".to_sym
-      curr_combo.map { |student| student.combo = class_label }
-    end
-  end
-
-  def _schedule_split(period, students)
-    students.sort_by!(&:combo_score)
-
-    _in_groups(students, 3).each do |level,students|
-      class_name = "#{period}_split_#{level + 1}".to_sym
-      students.map { |student| student.split = class_name }
-    end
+  def _zipper_split_combos(combos)
+    sorted_combos = combos.sort_by { |tup| tup[0] }
+    grouped = sorted_combos.group_by { |tup| tup[0] % 2 }
+    first_half = grouped[0].nil? ? [] : grouped[0].map(&:last)
+    second_half = grouped[1].nil? ? [] : grouped[1].map(&:last)
+    [first_half, second_half]
   end
 
   def _zipper_split(sorted_students)
