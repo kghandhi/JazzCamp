@@ -67,7 +67,7 @@ class Student
   end
 
   def event6
-    puts "HELP combo/split" if @combo.nil? || @split.nil? #early_combo? && early_split?
+    puts "HELP combo/split:#{instrument}" if @combo.nil? || @split.nil? #early_combo? && early_split?
     if early_combo? && !early_split?
       @combo.to_s
     elsif early_split?
