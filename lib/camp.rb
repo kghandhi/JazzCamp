@@ -2,13 +2,7 @@ require_relative "student"
 require_relative "classroom"
 require_relative "instruments"
 
-THEORY_BUCKETS = {
-  1 => (0..14),
-  2 => (15..29),
-  3 => (30..44),
-  4 => (45..59),
-  5 => (60..62)
-}
+APPLIED_THEORY = (43..47)
 
 class Camp
   attr_accessor :students
@@ -60,17 +54,21 @@ class Camp
   def schedule_theory_musicianship_classes
     # Theory Class for drummers and vocalists
     # Drummers go in Drum theory (late) if they do not have a theory score
+
+    rest = @students.dup.select { |student| ![:voice,:drums].include?(student.instrument) }
+    early_theory, late_theory = _zipper_split(rest.sort_by(&:theory_score))
+
     @students_by_instrument[:drums].each do |drummer|
       if drummer.theory_score == 0
         drummer.theory_class = :late_drum_theory
       else
-        drummer.theory_class = "late_theory_#{theory_level(drummer)}".to_sym
+        late_theory << drummer
       end
     end
 
     # vocalists must be in early theory
     @students_by_instrument[:voice].each do |vocalist|
-      vocalist.theory_class = "early_theory_#{theory_level(vocalist)}".to_sym
+      early_theory << vocalist
     end
 
     # Musicianship class for drummers and vocalists
@@ -81,22 +79,24 @@ class Camp
       voice_kid.musicianship_class = :late_vocal_musicianship
     end
 
-    rest = @students.dup.select do |student|
-      student.musicianship_class.nil? && student.theory_class.nil?
-    end
-
-    early_theory, late_theory = _zipper_split(rest.sort_by(&:theory_score))
-
-    early_theory.map { |student|
-      student.theory_class = "early_theory_#{theory_level(student)}".to_sym
-    }
-    late_theory.map { |student|
-      student.theory_class = "late_theory_#{theory_level(student)}".to_sym
-    }
+    _schedule_theory(:early, early_theory)
+    _schedule_theory(:late, late_theory)
 
     # students with early theory have late musicianship and visa versa
     _schedule_musicianship(:late, early_theory)
     _schedule_musicianship(:early, late_theory)
+  end
+
+  def _schedule_theory(period, students)
+    applied_theory = students.select { |student| APPLIED_THEORY.include?(student.theory_score) }
+    applied_theory.map { |student| student.theory_class = "#{period}_applied_theory".to_sym }
+
+    rest = students - applied_theory
+    rest_grouped = _in_groups(rest.sort_by(&:theory_score), 4)
+    rest_grouped.each do |level,students_at_level|
+      class_label = "#{period}_theory_#{level + 1}".to_sym
+      students_at_level.map { |student| student.theory_class = class_label }
+    end
   end
 
   def _in_range(max_score, potential)

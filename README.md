@@ -69,7 +69,7 @@ this _integer_ is used to schedule `combos` and ranges from `1` (the top instrum
 
 ### Theory Score
 
-The theory score is an _integer_ between `0` and `62`. This score is used to determine `theory class` placement.
+The theory score is an _integer_ between `0` and `47`. This score is used to determine `theory class` placement.
 
 ### Musicianship Score
 
@@ -98,14 +98,9 @@ are per instrument.
 Note that vocalists are left out of the last three periods (masterclass, combo, and split).
 
 ### Theory Class
-Most theory classes are calculated by the _theory score_. Students are bucketed into 5 different buckets by their scores
-and assigned a class level based on that. The theory buckets are as follows:
-
-- Level 1: [0, 14]
-- Level 2: [15, 29]
-- Level 3: [30, 44]
-- Level 4: [45, 59]
-- Level 5: [60, 62]
+Most theory classes are calculated by the _theory score_. Students with theory scores between [43,47] are placed in 
+Applied theory. The rest of the students are sorted by their theory scores and evenly divided into the remaining
+4 classes per period.
 
 There are a few requirements on how these classes are chosen, though. 
 1. Since all drums students are in the same musicianship class (an early class) they must be scheduled for late thoery.
