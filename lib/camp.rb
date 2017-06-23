@@ -21,7 +21,10 @@ class Camp
     @name = name
     @students = []
     @students_by_instrument = _empty_students_by_instrument
-    @counts_by_family = {
+  end
+
+  def counts_by_family
+    {
       :strings => num_students_in_family(STRINGS),
       :brass => num_students_in_family(BRASS),
       :woodwinds => num_students_in_family(WOODWINDS),
@@ -39,22 +42,22 @@ class Camp
 
   def num_students_in_family(family)
     family.reduce(0) { |tot_in_family,instrument|
-      tot_in_family += students_by_instrument[instrument].reduce(0) { |sum,xs| sum += xs.length }
+      tot_in_family += @students_by_instrument[instrument].length
     }
   end
 
   def total_instruments_in_family(instrument)
-    family = ([
-      STRINGS,
-      BRASS,
-      WOODWINDS,
-      [:vibes],
-      [:piano],
-      [:guitar],
-      [:bass],
-      [:drums]
-    ].select { |family| family.include?(instrument) }).first
-    @counts_by_family[family]
+    family = ({
+      :strings => STRINGS,
+      :brass => BRASS,
+      :woodwinds => WOODWINDS,
+      :vibes => [:vibes],
+      :piano => [:piano],
+      :guitar => [:guitar],
+      :bass => [:bass],
+      :drums => [:drums]
+    }.select { |family,components| components.include?(instrument) }).keys.first
+    counts_by_family[family]
   end
 
   def schedule_theory_musicianship_classes
