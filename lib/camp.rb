@@ -259,6 +259,9 @@ class Camp
           # definitely off by 1 here
           total = total_instruments_in_family(instrument[0]).to_f
           expected_level = ((student.in_rank / total.to_f) * number).ceil - 1
+          if total == 1
+            expected_level = ((student.combo_score / 6.0) * number).ceil - 1
+          end
           res[expected_level] << student
         else
           res[level] += students_at_level
