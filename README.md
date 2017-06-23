@@ -120,6 +120,7 @@ are grouped together in a class.
 The requirement is specifically that 
 1. The room requirements about capacity are met
 2. Students in one musicianship class have very close `musicianship_score`s
+3. There should be at most 2 bass, at most 2 guitars, at most 2 pianos, and at most 5 saxophones (of any type) per class 
 
 The way this is achieved is by separating piano-like instruments, amp requiring instruments, and all the rest.
 Once they are separated and sorted by `musicianship_score`, students are selected from each of the three lists
@@ -127,6 +128,7 @@ to join a musicianship class based on room capacity and deviation from the maxim
 currently selected class. This requires that to be part of a musicianship class, a student's instrument must fit
 in the room and that student must have a `musicianship_score` that is at least `1.0` less than the top score in
 the group.
+
 
 ### Masterclass
 
@@ -152,6 +154,11 @@ This ensures that the classes are all even in size and students with close `comb
 Combos require specific instrumentation. Ideally a combo will have 1 guitarist, 1 pianist, 1 drummer, 1 bassist,
 and 4-5 "horn" players. Horn players here are defined as every instrument that isn't a piano, guitar, drum, or bass.
 
+Requirements
+1. At most 2 brass players (trumpet or trombone) and at most 3 saxophone players
+2. Except for alto and tenor saxophones, all horn components of a combo must be unique
+
 
 ### Split
-There are three splits per period (early/late, 6 classes in total)
+There are three splits per period (early/late, 6 classes in total). Students are ranked by their `combo_score` and split
+evenly into split classes.
