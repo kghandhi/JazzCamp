@@ -10,8 +10,15 @@ THEORY_BUCKETS = {
   4 => (45..59),
   5 => (60..62)
 }
-MAX_SAX_PER_COMBO = 3
-MAX_BRASS_PER_COMBO = 2
+
+# # This year the theory buckets will be out of 47
+# THEORY_BUCKETS = {
+#   1 => (0..9),
+#   2 => (10..19),
+#   3 => (20..29),
+#   4 => (30..39),
+#   5 => (40..47)
+# }
 
 class Camp
   attr_accessor :students
@@ -112,33 +119,52 @@ class Camp
     instruments
   end
 
+  def _pull_qualified_sax(full_set, positions_to_fill, max_mus_score, retried=false)
+    instruments = []
+    num_sax = 0
+    full_set.reverse.each do |s|
+      return instruments if instruments.length >= positions_to_fill
+      if _in_range(max_mus_score, s)
+        if s.instrument == :saxophone
+          next if num_sax >= MAX_SAX_PER_COMBO
+          num_sax += 1
+        end
+        instruments << s
+        full_set.delete(s)
+      else
+        return instruments
+      end
+    end
+    if instruments.length < positions_to_fill - 2 && !retried
+      instruments += _pull_qualified_sax(full_set, positions_to_fill - instruments.length, max_mus_score - 0.5, true)
+    end
+    instruments
+  end
+
   def _schedule_musicianship(period, students)
     piano_type = students.select { |student| PIANO_TYPE.include?(student.instrument) }
     piano_type.sort_by!(&:musicianship_score)
 
-    ampy_type = students.select { |student| AMPY_TYPE.include?(student.instrument) }
-    ampy_type.sort_by!(&:musicianship_score)
+    guitar_type = students.select { |student| student.instrument == :guitar }
+    bass_type = students.select { |student| student.instrument == :bass }
+    guitar_type.sort_by!(&:musicianship_score)
+    bass_type.sort_by!(&:musicianship_score)
 
-    other_type = students - piano_type - ampy_type
+    other_type = students - piano_type - guitar_type - bass_type
     other_type.sort_by!(&:musicianship_score)
 
     CLASSROOMS.sort_by! { |room| - (room.num_pianos + room.num_amps) }
     CLASSROOMS.each_with_index do |room,level|
-      max_mus_score = [piano_type, other_type, ampy_type].map do |ss|
+      max_mus_score = [piano_type, other_type, guitar_type, bass_type].map do |ss|
         ss.length > 0 ? ss.last.musicianship_score : 0
       end.max
-
-      pianos = _pull_qualified(piano_type, room.num_pianos, max_mus_score)
-
-      potential_amps = room.num_amps
-      potential_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
-      amps = _pull_qualified(ampy_type, potential_amps, max_mus_score)
-
-      potential_other = room.capacity - pianos.length - amps.length
-      others = _pull_qualified(other_type, potential_other, max_mus_score)
-
+      pianos = _pull_qualified(piano_type, MAX_PIANO_PER_MUSICIANSHIP, max_mus_score)
+      guitars = _pull_qualified(guitar_type, MAX_GUITAR_PER_MUSICIANSHIP, max_mus_score)
+      bass = _pull_qualified(bass_type, MAX_BASS_PER_MUSICIANSHIP, max_mus_score)
+      potential_other = room.capacity - pianos.length - guitars.length - bass.length
+      others = _pull_qualified_sax(other_type, potential_other, max_mus_score)
       class_label = "#{period}_musicianship_#{level + 1}".to_sym
-      (pianos + amps + others).map { |student| student.musicianship_class = class_label }
+      (pianos + guitars + bass + others).map { |student| student.musicianship_class = class_label }
     end
   end
 
@@ -273,6 +299,7 @@ class Camp
     drummers.reverse!
     bassists.reverse!
 
+    CLASSROOMS.sort_by! { |room| - (room.num_pianos + room.num_amps) }
     CLASSROOMS.take(drummers.length).each_with_index do |room,level|
       curr_combo = []
       curr_combo << drummers.pop if drummers.length > 0
