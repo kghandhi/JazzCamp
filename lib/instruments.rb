@@ -46,17 +46,7 @@ BRASS = [
   :trombone,
 ]
 
-COMBO_UNIQUE_INSTRUMENTS = [
-  [:cello, nil],
-  [:clarinet, nil],
-  [:flute, nil],
-  [:saxophone, :baritone],
-  [:saxophone, :soprano],
-  [:trombone, nil],
-  [:trumpet, nil],
-  [:viola, nil],
-  [:violin, nil],
-]
-
-MAX_SAX_PER_COMBO = 3
-MAX_BRASS_PER_COMBO = 2
+MAX_PIANO_PER_MUSICIANSHIP = 2
+MAX_GUITAR_PER_MUSICIANSHIP = 2
+MAX_BASS_PER_MUSICIANSHIP = 2
+MAX_SAX_PER_MUSICIANSHIP = 5

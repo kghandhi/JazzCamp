@@ -117,29 +117,35 @@ class Camp
     piano_type = students.select { |student| PIANO_TYPE.include?(student.instrument) }
     piano_type.sort_by!(&:musicianship_score)
 
-    ampy_type = students.select { |student| AMPY_TYPE.include?(student.instrument) }
-    ampy_type.sort_by!(&:musicianship_score)
+    guitar_type = students.select { |student| student.instrument == :guitar }
+    guitar_type.sort_by!(&:musicianship_score)
 
-    other_type = students - piano_type - ampy_type
+    bass_type = students.select { |student| student.instrument == :bass }
+    bass_type.sort_by!(&:musicianship_score)
+
+    saxophone_type = students.select { |student| student.instrument == :saxophone }
+    saxophone_type.sort_by!(&:musicianship_score)
+
+    other_type = students - piano_type - guitar_type - bass_type - saxophone_type
     other_type.sort_by!(&:musicianship_score)
 
     CLASSROOMS.sort_by! { |room| - (room.num_pianos + room.num_amps) }
     CLASSROOMS.each_with_index do |room,level|
-      max_mus_score = [piano_type, other_type, ampy_type].map do |ss|
+      max_mus_score = [piano_type, other_type, saxophone_type, bass_type, guitar_type].map do |ss|
         ss.length > 0 ? ss.last.musicianship_score : 0
       end.max
 
-      pianos = _pull_qualified(piano_type, room.num_pianos, max_mus_score)
+      pianos = _pull_qualified(piano_type, MAX_PIANO_PER_MUSICIANSHIP, max_mus_score)
 
-      potential_amps = room.num_amps
-      potential_amps += pianos.length != room.num_pianos ? room.num_pianos - pianos.length : 0
-      amps = _pull_qualified(ampy_type, potential_amps, max_mus_score)
+      guitars = _pull_qualified(guitar_type, MAX_GUITAR_PER_MUSICIANSHIP, max_mus_score)
+      bass = _pull_qualified(bass_type, MAX_BASS_PER_MUSICIANSHIP, max_mus_score)
+      saxophones = _pull_qualified(saxophone_type, MAX_SAX_PER_MUSICIANSHIP, max_mus_score)
 
-      potential_other = room.capacity - pianos.length - amps.length
+      potential_other = room.capacity - pianos.length - guitars.length - bass.length - saxophones.length
       others = _pull_qualified(other_type, potential_other, max_mus_score)
 
       class_label = "#{period}_musicianship_#{level + 1}".to_sym
-      (pianos + amps + others).map { |student| student.musicianship_class = class_label }
+      (pianos + guitars + bass + saxophones + others).map { |student| student.musicianship_class = class_label }
     end
   end
 
