@@ -1,4 +1,3 @@
-# require 'pry'
 require_relative "student"
 require_relative "classroom"
 require_relative "instruments"
@@ -204,11 +203,13 @@ class Camp
     guitar_groups = _in_groups(guitarists, drummers.length)
     drummers.reverse!
     bassists.reverse!
+
     early_combos = []
     late_combos = []
 
     double_classrooms = (CLASSROOMS + CLASSROOMS).sort_by { |room| - (room.num_pianos + room.num_amps) }
     double_classrooms.take(drummers.length).each_with_index do |room,level|
+      #TODO take into account room requirements?
       curr_combo = []
       curr_combo << drummers.pop if drummers.length > 0
       curr_combo += piano_groups[level]
@@ -251,11 +252,14 @@ class Camp
   end
 
   def _in_horn_groups(horns, number)
-    res = Hash.new([])
+    horns_by_level = Hash.new([])
+
     grouped_by_instrument = horns.group_by { |student| [student.instrument, student.variant] }
-    grouped_by_instrument.each do |instrument,students|
+    grouped_by_instrument.each do |instrument_pair,students|
+
       students.sort_by! { |s| [-s.in_rank, s.combo_score] }
       students.reverse!
+
       grouped = _in_groups(students, number)
       grouped.each do |level,students_at_level|
         if students.length < number
@@ -263,18 +267,19 @@ class Camp
           next if students_at_level.length == 0
           student = students_at_level.first
           # definitely off by 1 here
-          total = total_instruments_in_family(instrument[0]).to_f
-          expected_level = ((student.in_rank / total.to_f) * number).ceil - 1
-          if total == 1
-            expected_level = ((student.combo_score / 6.0) * number).ceil - 1
-          end
-          res[expected_level] << student
+          total = total_instruments_in_family(instrument_pair.first).to_f
+          expected_level = if total != 1
+                             ((student.in_rank / total.to_f) * number).ceil - 1
+                           else
+                             expected_level = ((student.combo_score / 6.0) * number).ceil - 1
+                           end
+          horns_by_level[expected_level] << student
         else
-          res[level] += students_at_level
+          horns_by_level[level] += students_at_level
         end
       end
     end
-    res
+    horns_by_level
   end
 
   def _in_groups(students, number)
