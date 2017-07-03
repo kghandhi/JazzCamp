@@ -8,13 +8,16 @@ class ClassScheduler
   end
 
   def run(args)
-    _usage if args.size != 2
+    _usage if ![2, 3].include?(args.length)
+
+    human_readable = args.length == 3 && args[2].downcase == 'readable'
+    puts human_readable
 
     student_stats_filename = args[0]
     camp_name = args[1]
     _abort("invalid file path.") unless File.file?(student_stats_filename)
 
-    camp = Camp.new(camp_name)
+    camp = Camp.new(camp_name, human_readable)
     Parser.new(camp).populate_students(student_stats_filename)
     camp.schedule_masterclass
     camp.schedule_theory_musicianship_classes
@@ -25,7 +28,8 @@ class ClassScheduler
 
   def _usage
     expected_arguments = "<INPUT_FILE_PATH> <CAMP_NAME>"
-    @output.puts "ruby lib/class_scheduler.rb #{expected_arguments}"
+    optional_arguments = "readable[optional]"
+    @output.puts "ruby lib/class_scheduler.rb #{expected_arguments} #{optional_arguments}"
     @output.puts
     @output.puts "The input file should be a .csv formatted like:"
     @output.puts "\tLNAME, FNAME, INSTUMENT, INSTRUMENT_RANK, THEORY_SCORE, MUSICIANSHIP_SCORE, COMBO_SCORE"

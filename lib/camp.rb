@@ -8,10 +8,15 @@ class Camp
   attr_accessor :students
   attr_accessor :students_by_instrument
 
-  def initialize(name)
+  def initialize(name, human_readable)
     @name = name
+    @human_readable = human_readable
     @students = []
     @students_by_instrument = _empty_students_by_instrument
+  end
+
+  def _empty_students_by_instrument
+    Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
   end
 
   def counts_by_family
@@ -25,10 +30,6 @@ class Camp
       :bass => num_students_in_family([:bass]),
       :drums => num_students_in_family([:drums]),
     }
-  end
-
-  def _empty_students_by_instrument
-    Hash[POSSIBLE_INSTRUMENTS.map { |instrument| [instrument, []]}]
   end
 
   def num_students_in_family(family)
@@ -60,7 +61,7 @@ class Camp
 
     @students_by_instrument[:drums].each do |drummer|
       if drummer.theory_score == 0
-        drummer.theory_class = :late_drum_theory
+        drummer.theory_class = @human_readable ? :late_drum_theory : :LDT
       else
         late_theory << drummer
       end
@@ -73,10 +74,10 @@ class Camp
 
     # Musicianship class for drummers and vocalists
     @students_by_instrument[:drums].each do |drum_kid|
-      drum_kid.musicianship_class = :early_drum_rudiments
+      drum_kid.musicianship_class = @human_readable ? :early_drum_rudiments : :EDM
     end
     @students_by_instrument[:voice].each do |voice_kid|
-      voice_kid.musicianship_class = :late_vocal_musicianship
+      voice_kid.musicianship_class = @human_readable ? :late_vocal_musicianship : :VM
     end
 
     _schedule_theory(:early, early_theory)
@@ -89,13 +90,20 @@ class Camp
 
   def _schedule_theory(period, students)
     applied_theory = students.select { |student| APPLIED_THEORY.include?(student.theory_score) }
-    applied_theory.map { |student| student.theory_class = "#{period}_applied_theory".to_sym }
+
+    readable_class_name = "#{period}_applied_theory"
+    ugly_class_name = "#{period[0].upcase}T05"
+    class_name = @human_readable ? readable_class_name : ugly_class_name
+    applied_theory.map { |student| student.theory_class = class_name.to_sym }
 
     rest = students - applied_theory
     rest_grouped = _in_groups(rest.sort_by(&:theory_score), 4)
     rest_grouped.each do |level,students_at_level|
-      class_label = "#{period}_theory_#{level + 1}".to_sym
-      students_at_level.map { |student| student.theory_class = class_label }
+
+      readable_class_name = "#{period}_theory_#{level + 1}"
+      ugly_class_name = "#{period[0].upcase}T%02d" % [level + 1]
+      class_name = @human_readable ? readable_class_name : ugly_class_name
+      students_at_level.map { |student| student.theory_class = class_name.to_sym }
     end
   end
 
@@ -143,8 +151,15 @@ class Camp
       potential_other = room.capacity - pianos.length - guitars.length - bass.length - saxophones.length
       others = _pull_qualified(other_type, potential_other, max_mus_score)
 
-      class_label = "#{period}_musicianship_#{level + 1}".to_sym
-      (pianos + guitars + bass + saxophones + others).map { |student| student.musicianship_class = class_label }
+      readable_class_name = "#{period}_musicianship_#{level + 1}"
+      ugly_class_name = if level == 0
+                          "#{period[0].upcase}M99"
+                        else
+                          "#{period[0].upcase}M%02d" % [level]
+                        end
+
+      class_name = @human_readable ? readable_class_name : ugly_class_name
+      (pianos + guitars + bass + saxophones + others).map { |student| student.musicianship_class = class_name.to_sym }
     end
   end
 
@@ -153,11 +168,19 @@ class Camp
   end
 
   def schedule_masterclass
-    @students_by_instrument[:clarinet].each { |clarinet_kid| clarinet_kid.masterclass = :clarinet_masterclass }
-    @students_by_instrument[:flute].each { |flute_kid| flute_kid.masterclass = :flute_masterclass }
-    @students_by_instrument[:voice].each { |vocal_kid| vocal_kid.masterclass = :voice_masterclass}
+    @students_by_instrument[:clarinet].each do |clarinet_kid|
+      clarinet_kid.masterclass = @human_readable ? :clarinet_masterclass : :MCCLAR
+  end
+    @students_by_instrument[:flute].each do |flute_kid|
+      flute_kid.masterclass = @human_readable ? :flute_masterclass : :MCFL
+    end
+    @students_by_instrument[:voice].each do |vocal_kid|
+      vocal_kid.masterclass = @human_readable ? :voice_masterclass : :MCVOC
+    end
     STRINGS.each do |string_instrument|
-      @students_by_instrument[string_instrument].each { |string_kid| string_kid.masterclass = :string_masterclass }
+      @students_by_instrument[string_instrument].each do |string_kid|
+        string_kid.masterclass = @human_readable ? :string_masterclass : :MCSTR
+      end
     end
 
     [:bass, :drums, :guitar, :piano, :trombone, :trumpet,].each do |two_class_instrument|
@@ -173,9 +196,27 @@ class Camp
 
     groups = _in_groups(students, num)
     groups.each do |level,students_in_level|
-      class_name = (instrument.to_s + "_masterclass_#{level + 1}").to_sym
-      students_in_level.map { |student| student.masterclass = class_name }
+      readable_class_name = (instrument.to_s + "_masterclass_#{level + 1}")
+      ugly_class_name = if level == 0
+                          "MC#{_abreviation[instrument]}"
+                        else
+                          "MC#{_abreviation[instrument]}#{level}"
+                        end
+      class_name = @human_readable ? readable_class_name : ugly_class_name
+      students_in_level.map { |student| student.masterclass = class_name.to_sym }
     end
+  end
+
+  def _abreviation
+    {
+      :bass => "BS",
+      :drums => "DRM",
+      :guitar => "GUIT",
+      :piano => "PNO",
+      :saxophone => "SAX",
+      :trombone => "TB",
+      :trumpet => "TR",
+    }
   end
 
   def schedule_combo_split_classes
@@ -229,8 +270,11 @@ class Camp
         late_combos += curr_combo
       end
 
-      class_label = "#{period}_combo_#{level + 1}".to_sym
-      curr_combo.map { |student| student.combo = class_label }
+      readable_class_name = "#{period}_combo_#{level + 1}"
+      ugly_class_name = "#{period[0].upcase}C%02d" % [level + 1]
+      class_name = @human_readable ? readable_class_name : ugly_class_name
+
+      curr_combo.map { |student| student.combo = class_name.to_sym }
     end
     [early_combos, late_combos]
   end
@@ -239,8 +283,10 @@ class Camp
     students.sort_by!(&:combo_score)
 
     _in_groups(students, 3).each do |level,students|
-      class_name = "#{period}_split_#{level + 1}".to_sym
-      students.map { |student| student.split = class_name }
+      readable_class_name = "#{period}_split_#{level + 1}"
+      ugly_class_name = "#{period[0].upcase}JT%02d" % [level + 1]
+      class_name = @human_readable ? readable_class_name : ugly_class_name
+      students.map { |student| student.split = class_name.to_sym }
     end
   end
 
