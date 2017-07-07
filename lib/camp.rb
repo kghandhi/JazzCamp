@@ -239,7 +239,6 @@ class Camp
 
   def _schedule_combo(drummers, bassists, pianos, horns)
     num_combos = drummers.length
-    horn_groups = {}
     piano_groups = _in_groups(pianos, num_combos)
     drummers.reverse!
     bassists.reverse!
@@ -253,17 +252,14 @@ class Camp
       curr_combo += piano_groups[level]
 
       curr_horns = if level <= 4
-                _top_five_combo_horns(horns, curr_combo)
-              else
-                if level == 5
-                  horn_groups = _in_horn_groups(horns, num_combos - 5)
-                end
-                horn_groups[level - 5]
-              # else
-              #   option 2 would be to do old method of sorting to ensure uniqueness
-              #   desired_horns = room.capacity - curr_combo.length
-              #   _uniquely_get_horns(horns, desired_horns)
-              end
+                     _top_five_combo_horns(horns, curr_combo)
+                   else
+                     if level == 5
+                       horns = _sort_by_inrank_combo(horns)
+                     end
+                     desired_horns = room.capacity - curr_combo.length
+                     _uniquely_get_horns(horns, desired_horns)
+                   end
 
       curr_combo += curr_horns
       curr_combo << bassists.pop if _bassist_acceptable(bassists, level, curr_combo)
@@ -308,6 +304,56 @@ class Camp
     end
     curr_combo += curr_horns
     curr_combo
+  end
+
+  def _sort_by_inrank_combo(students)
+    # sort by the highness of their combo score and the lowness of their fractional in_rank ([0,1] rank / # in)
+    students.sort_by do |student|
+      num_instruments_in_family = total_instruments_in_family(student.instrument)
+      relative_rank = student.in_rank.to_f / num_instruments_in_family.to_f
+      [- relative_rank, student.combo_score]
+    end.reverse
+  end
+
+  def _uniquely_get_horns(all_horns, max_number)
+    uniqueness_hash = Hash[COMBO_UNIQUE_INSTRUMENTS.map { |instrument| [instrument, 0]}]
+    selected = []
+    num_brass = 0
+    num_sax = 0
+    num_guitar = 0
+
+    all_horns.dup.each do |student|
+      return selected if selected.length >= max_number
+
+      next if student.instrument == :saxophone && num_sax >= MAX_SAX_PER_COMBO
+      next if student.instrument == :guitar && num_guitar >= MAX_GUITAR_PER_COMBO
+      next if BRASS.include?(student.instrument) && num_brass >= MAX_BRASS_PER_COMBO
+
+      added_student = nil
+      key_to_hash = [student.instrument, student.variant]
+
+      if COMBO_UNIQUE_INSTRUMENTS.include?(key_to_hash)
+        if uniqueness_hash[key_to_hash] == 0
+          uniqueness_hash[key_to_hash] += 1
+          added_student = student
+        end
+      else
+        added_student = student
+      end
+
+      if !added_student.nil?
+        if added_student.instrument == :saxophone
+          num_sax += 1
+        elsif added_student.instrument == :guitar
+          num_guitar += 1
+        elsif BRASS.include?(student.instrument)
+          num_brass += 1
+        end
+        selected << student
+        all_horns.delete(student)
+      end
+    end
+    selected
   end
 
   def _schedule_split(period, students)
