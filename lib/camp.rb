@@ -226,41 +226,47 @@ class Camp
 
     drums = @students_by_instrument[:drums].dup.sort_by(&:in_rank)
     bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank) # this is short
-    guitars = @students_by_instrument[:guitar].dup.sort_by(&:in_rank)
     pianos = @students_by_instrument[:piano].dup.sort_by(&:in_rank)
 
     # cello, clarinet, flute, saxophone, trombone, trumpet, vibes, viola, violin
     # STRINGS + vibes + WOODWINDS + BRASS
-    horns = @students.dup - @students_by_instrument[:voice].dup - drums - bass - guitars - pianos
+    horns = @students.dup - @students_by_instrument[:voice].dup - drums - bass - pianos
 
-    early_combos, late_combos = _schedule_combo(drums, bass, guitars, pianos, horns)
+    early_combos, late_combos = _schedule_combo(drums, bass, pianos, horns)
     _schedule_split(:late, early_combos)
     _schedule_split(:early, late_combos)
   end
 
-  def _schedule_combo(drummers, bassists, guitarists, pianos, horns)
-    horn_groups = _in_horn_groups(horns, drummers.length)
-    piano_groups = _in_groups(pianos, drummers.length)
-    guitar_groups = _in_groups(guitarists, drummers.length)
+  def _schedule_combo(drummers, bassists, pianos, horns)
+    num_combos = drummers.length
+    horn_groups = {}
+    piano_groups = _in_groups(pianos, num_combos)
     drummers.reverse!
     bassists.reverse!
 
     early_combos = []
     late_combos = []
-
     double_classrooms = (CLASSROOMS + CLASSROOMS).sort_by { |room| - (room.num_pianos + room.num_amps) }
-    double_classrooms.take(drummers.length).each_with_index do |room,level|
-      #TODO take into account room requirements?
+    double_classrooms.take(num_combos).each_with_index do |room,level|
       curr_combo = []
       curr_combo << drummers.pop if drummers.length > 0
       curr_combo += piano_groups[level]
-      curr_combo += guitar_groups[level]
 
-      if bassists.length > 0 && curr_combo.map(&:in_rank).include?(bassists.last.in_rank)
-        curr_combo << bassists.pop if bassists.length > 0
-      end
+      curr_horns = if level <= 4
+                _top_five_combo_horns(horns, curr_combo)
+              else
+                if level == 5
+                  horn_groups = _in_horn_groups(horns, num_combos - 5)
+                end
+                horn_groups[level - 5]
+              # else
+              #   option 2 would be to do old method of sorting to ensure uniqueness
+              #   desired_horns = room.capacity - curr_combo.length
+              #   _uniquely_get_horns(horns, desired_horns)
+              end
 
-      curr_combo += horn_groups[level]
+      curr_combo += curr_horns
+      curr_combo << bassists.pop if _bassist_acceptable(bassists, level, curr_combo)
 
       if level % 2 == 0
         period = "early"
@@ -277,6 +283,31 @@ class Camp
       curr_combo.map { |student| student.combo = class_name.to_sym }
     end
     [early_combos, late_combos]
+  end
+
+  def _bassist_acceptable(bassists, level, curr_combo)
+    return false if bassists.length == 0
+    bassist = bassists.last
+    avg_combo_score = (curr_combo.inject(0) { |sum,s| sum += s.combo_score }).to_f / curr_combo.length.to_f
+    bassist.in_rank <= level && (avg_combo_score - bassist.combo_score).abs <= 1
+  end
+
+  def _top_five_combo_horns(horns, curr_combo)
+    # we dont need to do this every single time
+    horns.sort_by! { |student| [ - student.in_rank, student.combo_score ] }
+    horns.reverse!
+    combo_contains = {}
+    curr_horns = []
+
+    horns.dup.each do |student|
+      break if curr_horns.length >= 3
+      next if !combo_contains[[student.instrument, student.variant]].nil?
+      combo_contains[[student.instrument,student.variant]] = 1
+      curr_horns << student
+      horns.delete(student)
+    end
+    curr_combo += curr_horns
+    curr_combo
   end
 
   def _schedule_split(period, students)
@@ -317,6 +348,7 @@ class Camp
           expected_level = if total != 1
                              ((student.in_rank / total.to_f) * number).ceil - 1
                            else
+                             # since the combo score is out of 6.0
                              expected_level = ((student.combo_score / 6.0) * number).ceil - 1
                            end
           horns_by_level[expected_level] << student
