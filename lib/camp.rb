@@ -77,7 +77,7 @@ class Camp
       drum_kid.musicianship_class = @human_readable ? :early_drum_rudiments : :EDM
     end
     @students_by_instrument[:voice].each do |voice_kid|
-      voice_kid.musicianship_class = @human_readable ? :late_vocal_musicianship : :VM
+      voice_kid.musicianship_class = @human_readable ? :late_vocal_musicianship : :LVM
     end
 
     _schedule_theory(:early, early_theory)
@@ -221,8 +221,8 @@ class Camp
 
   def schedule_combo_split_classes
     # do not handle vocalists
-    @students_by_instrument[:voice].each { |student| student.combo = "vocal_combo" }
-    @students_by_instrument[:voice].each { |student| student.split = "vocal_split" }
+    # @students_by_instrument[:voice].each { |student| student.combo = :early_vocal_combo }
+    # @students_by_instrument[:voice].each { |student| student.split = :late_vocal_split }
 
     drums = @students_by_instrument[:drums].dup.sort_by(&:in_rank)
     bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank) # this is short

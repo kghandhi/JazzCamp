@@ -22,27 +22,27 @@ class Student
   end
 
   def early_theory?
-    return @theory_class.to_s.split(/_/)[0] == "early"
+    return @theory_class.to_s.downcase[0] == "e"
   end
 
   def early_musicianship?
-    return @musicianship_class.to_s.split(/_/)[0] == "early"
+    return @musicianship_class.to_s.downcase[0] == "e"
   end
 
   def early_combo?
-    return @combo.to_s.split(/_/)[0] == "early"
+    return @combo.to_s.downcase[0] == "e"
   end
 
   def late_combo?
-    return @combo.to_s.split(/_/)[0] == "late"
+    return @combo.to_s.downcase[0] == "l"
   end
 
   def early_split?
-    return @split.to_s.split(/_/)[0] == "early"
+    return @split.to_s.downcase[0] == "e"
   end
 
   def late_split?
-    return @split.to_s.split(/_/)[0] == "late"
+    return @split.to_s.downcase[0] == "l"
   end
 
   def event1
