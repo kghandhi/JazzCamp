@@ -1,6 +1,7 @@
 require_relative "student"
 require_relative "classroom"
 require_relative "instruments"
+require_relative "camp_helpers"
 
 APPLIED_THEORY = (43..47)
 
@@ -57,7 +58,7 @@ class Camp
     # Drummers go in Drum theory (late) if they do not have a theory score
 
     rest = @students.dup.select { |student| ![:voice,:drums].include?(student.instrument) }
-    early_theory, late_theory = _zipper_split(rest.sort_by(&:theory_score))
+    early_theory, late_theory = zipper_split(rest.sort_by(&:theory_score))
 
     @students_by_instrument[:drums].each do |drummer|
       if drummer.theory_score == 0
@@ -91,19 +92,15 @@ class Camp
   def _schedule_theory(period, students)
     applied_theory = students.select { |student| APPLIED_THEORY.include?(student.theory_score) }
 
-    readable_class_name = "#{period}_applied_theory"
-    ugly_class_name = "#{period[0].upcase}T05"
-    class_name = @human_readable ? readable_class_name : ugly_class_name
-    applied_theory.map { |student| student.theory_class = class_name.to_sym }
+    # should be "#{period}_applied_theory"
+    class_label = class_label(@human_readable, :theory, period, 5)
+    applied_theory.map { |student| student.theory_class = class_label }
 
     rest = students - applied_theory
-    rest_grouped = _in_groups(rest.sort_by(&:theory_score), 4)
+    rest_grouped = in_groups(rest.sort_by(&:theory_score), 4)
     rest_grouped.each do |level,students_at_level|
-
-      readable_class_name = "#{period}_theory_#{level + 1}"
-      ugly_class_name = "#{period[0].upcase}T%02d" % [level + 1]
-      class_name = @human_readable ? readable_class_name : ugly_class_name
-      students_at_level.map { |student| student.theory_class = class_name.to_sym }
+      class_label = class_label(@human_readable, :theory, period, level)
+      students_at_level.map { |student| student.theory_class = class_label }
     end
   end
 
@@ -151,15 +148,10 @@ class Camp
       potential_other = room.capacity - pianos.length - guitars.length - bass.length - saxophones.length
       others = _pull_qualified(other_type, potential_other, max_mus_score)
 
-      readable_class_name = "#{period}_musicianship_#{level + 1}"
-      ugly_class_name = if level == 0
-                          "#{period[0].upcase}M99"
-                        else
-                          "#{period[0].upcase}M%02d" % [level]
-                        end
+      read_level = level == 0 ? 98 : level - 1
 
-      class_name = @human_readable ? readable_class_name : ugly_class_name
-      (pianos + guitars + bass + saxophones + others).map { |student| student.musicianship_class = class_name.to_sym }
+      class_label = class_label(@human_readable, :musicianship, period, read_level)
+      (pianos + guitars + bass + saxophones + others).map { |student| student.musicianship_class = class_label }
     end
   end
 
@@ -194,42 +186,21 @@ class Camp
     students += @students_by_instrument[:vibes].dup if instrument == :piano
     students.sort_by!(&:combo_score)
 
-    groups = _in_groups(students, num)
+    groups = in_groups(students, num)
     groups.each do |level,students_in_level|
-      readable_class_name = (instrument.to_s + "_masterclass_#{level + 1}")
-      ugly_class_name = if level == 0
-                          "MC#{_abreviation[instrument]}"
-                        else
-                          "MC#{_abreviation[instrument]}#{level}"
-                        end
-      class_name = @human_readable ? readable_class_name : ugly_class_name
-      students_in_level.map { |student| student.masterclass = class_name.to_sym }
+      class_label = class_label(@human_readable, :musicianship, nil, level, instrument=instrument)
+      students_in_level.map { |student| student.masterclass = class_label }
     end
-  end
-
-  def _abreviation
-    {
-      :bass => "BS",
-      :drums => "DRM",
-      :guitar => "GUIT",
-      :piano => "PNO",
-      :saxophone => "SAX",
-      :trombone => "TB",
-      :trumpet => "TR",
-    }
   end
 
   def schedule_combo_split_classes
     # do not handle vocalists
-    # @students_by_instrument[:voice].each { |student| student.combo = :early_vocal_combo }
-    # @students_by_instrument[:voice].each { |student| student.split = :late_vocal_split }
-
     drums = @students_by_instrument[:drums].dup.sort_by(&:in_rank)
-    bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank) # this is short
+    bass = @students_by_instrument[:bass].dup.sort_by(&:in_rank)
     pianos = @students_by_instrument[:piano].dup.sort_by(&:in_rank)
 
     # cello, clarinet, flute, saxophone, trombone, trumpet, vibes, viola, violin
-    # STRINGS + vibes + WOODWINDS + BRASS
+    # STRINGS + vibes + WOODWINDS + BRASS + guitar
     horns = @students.dup - @students_by_instrument[:voice].dup - drums - bass - pianos
 
     early_combos, late_combos = _schedule_combo(drums, bass, pianos, horns)
@@ -239,7 +210,7 @@ class Camp
 
   def _schedule_combo(drummers, bassists, pianos, horns)
     num_combos = drummers.length
-    piano_groups = _in_groups(pianos, num_combos)
+    piano_groups = in_groups(pianos, num_combos)
     drummers.reverse!
     bassists.reverse!
 
@@ -264,7 +235,9 @@ class Camp
       curr_combo += curr_horns
       curr_combo << bassists.pop if _bassist_acceptable(bassists, level, curr_combo)
 
-      if level % 2 == 0
+      read_level, evenness = level.divmod(2)
+
+      if evenness == 0
         period = "early"
         early_combos += curr_combo
       else
@@ -272,11 +245,8 @@ class Camp
         late_combos += curr_combo
       end
 
-      readable_class_name = "#{period}_combo_#{level + 1}"
-      ugly_class_name = "#{period[0].upcase}C%02d" % [level + 1]
-      class_name = @human_readable ? readable_class_name : ugly_class_name
-
-      curr_combo.map { |student| student.combo = class_name.to_sym }
+      class_label = class_label(@human_readable, :combo, period, read_level)
+      curr_combo.map { |student| student.combo = class_label }
     end
     [early_combos, late_combos]
   end
@@ -359,65 +329,9 @@ class Camp
   def _schedule_split(period, students)
     students.sort_by!(&:combo_score)
 
-    _in_groups(students, 3).each do |level,students|
-      readable_class_name = "#{period}_split_#{level + 1}"
-      ugly_class_name = "#{period[0].upcase}JT%02d" % [level + 1]
-      class_name = @human_readable ? readable_class_name : ugly_class_name
-      students.map { |student| student.split = class_name.to_sym }
+    in_groups(students, 3).each do |level,students|
+      class_label = class_label(@human_readable, :split, period, level)
+      students.map { |student| student.split = class_label }
     end
-  end
-
-  def _zipper_split(sorted_students)
-    grouped = sorted_students.each_with_index.group_by { |student,rank| rank % 2 }
-    first_half = grouped[0].nil? ? [] : grouped[0].map(&:first)
-    second_half = grouped[1].nil? ? [] : grouped[1].map(&:first)
-    [first_half, second_half]
-  end
-
-  def _in_horn_groups(horns, number)
-    horns_by_level = Hash.new([])
-
-    grouped_by_instrument = horns.group_by { |student| [student.instrument, student.variant] }
-    grouped_by_instrument.each do |instrument_pair,students|
-
-      students.sort_by! { |s| [-s.in_rank, s.combo_score] }
-      students.reverse!
-
-      grouped = _in_groups(students, number)
-      grouped.each do |level,students_at_level|
-        if students.length < number
-          # the length of students_at_level is 1 or 0
-          next if students_at_level.length == 0
-          student = students_at_level.first
-          # definitely off by 1 here
-          total = total_instruments_in_family(instrument_pair.first).to_f
-          expected_level = if total != 1
-                             ((student.in_rank / total.to_f) * number).ceil - 1
-                           else
-                             # since the combo score is out of 6.0
-                             expected_level = ((student.combo_score / 6.0) * number).ceil - 1
-                           end
-          horns_by_level[expected_level] << student
-        else
-          horns_by_level[level] += students_at_level
-        end
-      end
-    end
-    horns_by_level
-  end
-
-  def _in_groups(students, number)
-    division = students.length / number
-    modulo = students.length % number
-
-    groups = {}
-    start = 0
-
-    number.times do |class_level|
-      class_size = division + (modulo > 0 && modulo > class_level ? 1 : 0)
-      groups[class_level] = students[start...(start + class_size)]
-      start += class_size
-    end
-    groups
   end
 end

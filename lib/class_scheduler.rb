@@ -11,7 +11,6 @@ class ClassScheduler
     _usage if ![2, 3].include?(args.length)
 
     human_readable = args.length == 3 && args[2].downcase == 'readable'
-    puts human_readable
 
     student_stats_filename = args[0]
     camp_name = args[1]
