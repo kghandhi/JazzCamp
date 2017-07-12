@@ -255,7 +255,7 @@ class Camp
     return false if bassists.length == 0
     bassist = bassists.last
     avg_combo_score = (curr_combo.inject(0) { |sum,s| sum += s.combo_score }).to_f / curr_combo.length.to_f
-    bassist.in_rank <= level && (avg_combo_score - bassist.combo_score).abs <= 1
+    bassist.in_rank <= (level + 1) && (avg_combo_score - bassist.combo_score).abs <= 1
   end
 
   def _top_five_combo_horns(horns, curr_combo)
