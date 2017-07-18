@@ -81,12 +81,16 @@ class Camp
       voice_kid.musicianship_class = @human_readable ? :late_vocal_musicianship : :LVM
     end
 
+
     _schedule_theory(:early, early_theory)
     _schedule_theory(:late, late_theory)
 
+    late_musicianship = early_theory.select { |student| ![:voice, :drums].include?(student.instrument) }
+    early_musicianship = late_theory.select { |student| ![:voice, :drums].include?(student.instrument) }
+
     # students with early theory have late musicianship and visa versa
-    _schedule_musicianship(:late, early_theory)
-    _schedule_musicianship(:early, late_theory)
+    _schedule_musicianship(:late, late_musicianship)
+    _schedule_musicianship(:early, early_musicianship)
   end
 
   def _schedule_theory(period, students)
