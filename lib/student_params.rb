@@ -32,7 +32,7 @@ class StudentParams
   end
 
   def _valid_theory?
-    return true if (0..62).include?(@theory_score) || @instrument == :drums
+    return true if (0..49).include?(@theory_score) || @instrument == :drums
     puts "The theory score: #{@theory_score} is not valid, it should be between 0 and 62"
     return false
   end

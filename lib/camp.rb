@@ -3,7 +3,7 @@ require_relative "classroom"
 require_relative "instruments"
 require_relative "camp_helpers"
 
-APPLIED_THEORY = (43..47)
+APPLIED_THEORY = (43..49)
 
 class Camp
   attr_accessor :students
@@ -89,7 +89,7 @@ class Camp
     early_musicianship = late_theory.select { |student| ![:voice, :drums].include?(student.instrument) }
 
     # students with early theory have late musicianship and visa versa
-    _schedule_musicianship(:late, late_musicianship)
+    late_musicianship_schedule_musicianship(:late, late_musicianship)
     _schedule_musicianship(:early, early_musicianship)
   end
 
